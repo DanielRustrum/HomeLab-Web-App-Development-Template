@@ -1,0 +1,6 @@
+:5173 {
+  @api path /api /api/*
+  reverse_proxy @api app:8080
+
+  reverse_proxy frontend:5173
+}
