@@ -20,8 +20,8 @@ RUN useradd -m -s /bin/bash coder
 WORKDIR /workspaces/app
 
 # Copy bootstrap scripts
-COPY docker/workspace.entrypoint.sh /usr/local/bin/workspace-entrypoint
-COPY docker/workspace.bootstrap.sh /usr/local/bin/workspace-bootstrap
+COPY ops/docker/workspace.entrypoint.sh /usr/local/bin/workspace-entrypoint
+COPY ops/docker/workspace.bootstrap.sh /usr/local/bin/workspace-bootstrap
 RUN chmod +x /usr/local/bin/workspace-entrypoint /usr/local/bin/workspace-bootstrap
 
 ENTRYPOINT ["workspace-entrypoint"]

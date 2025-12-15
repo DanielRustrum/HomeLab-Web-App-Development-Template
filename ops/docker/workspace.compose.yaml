@@ -1,0 +1,17 @@
+services:
+  workspace:
+    build:
+      context: ../..
+      dockerfile: ops/docker/workspace.dockerfile
+    container_name: homelab_workspace
+    working_dir: /app
+    tty: true
+    stdin_open: true
+    volumes:
+      - ../../:/app
+      - workspace_node_modules:/app/src/frontend/node_modules
+      - workspace_home:/home/coder
+
+volumes:
+  workspace_node_modules:
+  workspace_home:

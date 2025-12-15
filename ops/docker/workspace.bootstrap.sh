@@ -21,12 +21,12 @@ if [ -f backend/requirements.txt ]; then
 fi
 
 # ---- Frontend deps ----
-if [ -f frontend/package.json ]; then
-  lock_file="frontend/package.json"
-  [ -f frontend/package-lock.json ] && lock_file="frontend/package-lock.json"
+if [ -f src/frontend/package.json ]; then
+  lock_file="src/frontend/package.json"
+  [ -f src/frontend/package-lock.json ] && lock_file="src/frontend/package-lock.json"
 
   fe_hash="$(sha256sum "$lock_file" | awk '{print $1}')"
-  if [ ! -d frontend/node_modules ] || [ ! -f "$CACHE_DIR/fe.hash" ] || [ "$(cat "$CACHE_DIR/fe.hash")" != "$fe_hash" ]; then
+  if [ ! -d src/frontend/node_modules ] || [ ! -f "$CACHE_DIR/fe.hash" ] || [ "$(cat "$CACHE_DIR/fe.hash")" != "$fe_hash" ]; then
     echo "[workspace] Installing frontend deps..."
     (cd frontend && ( [ -f package-lock.json ] && npm ci || npm install ))
     echo "$fe_hash" > "$CACHE_DIR/fe.hash"

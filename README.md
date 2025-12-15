@@ -12,10 +12,10 @@ Template repo for building small homelab apps with:
 
 ```text
 .
-├─ backend/                 # CherryPy API + static hosting (prod)
-├─ frontend/                # Vite React PWA + shadcn/ui
-├─ db/                      # SQL init + optional helpers
-├─ docker/                  # entrypoint + healthcheck scripts
+├─ docs/                 # CherryPy API + static hosting (prod)
+├─ ops/                # Vite React PWA + shadcn/ui
+├─ src/                      # SQL init + optional helpers
+├─ wiki/                  # entrypoint + healthcheck scripts
 ├─ compose.yaml             # dev compose (db + app + optional frontend)
 ├─ compose.prod.yaml        # prod compose (app image + external/optional db)
 └─ Dockerfile               # multi-stage build (frontend -> backend)
@@ -98,7 +98,7 @@ docker compose -f compose.prod.yaml up -d app
 - This template includes a tiny example “Notes” CRUD to verify DB + API + UI.
 
 ## License
-MIT
+GNU GENERAL PUBLIC LICENSE
 
 
 ## Flatpak Issues
