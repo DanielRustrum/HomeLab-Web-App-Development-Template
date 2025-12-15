@@ -9,17 +9,17 @@ Template repo for building small homelab apps with:
 - **DB:** local Postgres in dev, or point at an existing remote Postgres
 
 ## Repo layout
-
 ```text
 .
-├─ docs/                 # CherryPy API + static hosting (prod)
-├─ ops/                # Vite React PWA + shadcn/ui
-├─ src/                      # SQL init + optional helpers
-├─ wiki/                  # entrypoint + healthcheck scripts
-├─ compose.yaml             # dev compose (db + app + optional frontend)
-├─ compose.prod.yaml        # prod compose (app image + external/optional db)
-└─ Dockerfile               # multi-stage build (frontend -> backend)
+├─ .github/                 # Github related Files
+├─ docs/                    # Documentation
+├─ ops/                     # Devops Files and scripts
+├─ src/                     # Project Source
+├─ compose.yaml             # compose file for prod use
+├─ example.env              # Example Environment Variables (change to .env for prod use)
+└─ Makefile                 # Commands for development
 ```
+
 
 ## Quick start (development)
 

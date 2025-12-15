@@ -1,30 +1,44 @@
-# ---------- frontend build (prod) ----------
-FROM node:20-alpine AS build-frontend
+# syntax=docker/dockerfile:1
+
+ARG NODE_VERSION=20
+ARG PYTHON_VERSION=3.12
+
+# ---------- frontend build ----------
+FROM node:${NODE_VERSION}-alpine AS frontend-build
 WORKDIR /frontend
 
+# deps first (better caching)
 COPY src/frontend/package*.json ./
-RUN npm ci
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
+# build
 COPY src/frontend/ ./
 RUN npm run build
 
-
-# ---------- production runtime (serves frontend + api) ----------
-FROM python:3.12-slim AS prod
-
+# ---------- backend runtime ----------
+FROM python:${PYTHON_VERSION}-slim AS runtime
 WORKDIR /app
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# install python deps
 COPY src/backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
-COPY src/backend /app/backend
-COPY --from=build-frontend /frontend/dist /app/backend/static
+# copy backend source
+COPY src/backend/ /app/backend/
 
-# IMPORTANT: healthcheck references /app/docker/healthcheck.py
-# so make sure it exists in the image:
-COPY ops/docker /app/docker
+# copy built frontend into backend/static (served in prod)
+COPY --from=frontend-build /frontend/dist/ /app/backend/static/
 
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD python /app/docker/healthcheck.py
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health').read()"
 
 CMD ["python", "-m", "backend.app"]
