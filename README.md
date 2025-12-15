@@ -99,3 +99,14 @@ docker compose -f compose.prod.yaml up -d app
 
 ## License
 MIT
+
+
+## Flatpak Issues
+mkdir -p ~/.var/app/com.visualstudio.code/data/node_modules/bin
+
+cat <<'EOF' | tee ~/.var/app/com.visualstudio.code/data/node_modules/bin/docker >/dev/null
+#!/usr/bin/env sh
+exec flatpak-spawn --host docker "$@"
+EOF
+
+chmod +x ~/.var/app/com.visualstudio.code/data/node_modules/bin/docker

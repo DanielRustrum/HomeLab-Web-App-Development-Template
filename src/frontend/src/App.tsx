@@ -86,8 +86,7 @@ export default function App(): any {
             <h2 className="text-lg font-medium">Notes</h2>
           </div>
           <ul className="divide-y divide-white/10">
-            {`${notes.length}`}
-            {/* notes.map((n) => (
+            {notes.map(n =>  (
               <li key={n.id} className="px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div className="font-medium">{n.title}</div>
@@ -97,7 +96,7 @@ export default function App(): any {
                 </div>
                 {n.body ? <p className="mt-1 text-sm text-white/70">{n.body}</p> : null}
               </li>
-            ))} */}
+            ))}
             {notes.length === 0 ? (
               <li className="px-4 py-8 text-white/60">No notes yet.</li>
             ) : null}

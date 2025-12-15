@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-logs dev-stop dev-restart-frontend dev-restart-backend build-start run-start
+.PHONY: help dev-start dev-logs dev-stop dev-workspace dev-restart-frontend dev-restart-backend build-start run-start
 
 help:
 	@echo "Targets:"
@@ -15,6 +15,13 @@ dev-start:
 
 dev-logs:
 	echo "Not Implemented"
+
+dev-workspace:
+	docker compose \
+		--project-directory . \
+		-f docker/compose.dev.yaml \
+		-f docker/compose.workspace.yaml \
+		up -d --build
 
 dev-stop:
 	docker compose down
