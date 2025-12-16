@@ -1,13 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "./api";
-
-type Note = {
-  id: number;
-  title: string;
-  body: string;
-  created_at: string;
-};
+import { Note } from "./api.types";
 
 export default function App(): any {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -15,9 +9,10 @@ export default function App(): any {
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   async function refresh() {
     setError(null);
-    const data = await api<Note[]>("/notes");
+    const data = await api("notes") as unknown as Note[];
     setNotes(data);
   }
 
@@ -29,7 +24,7 @@ export default function App(): any {
     setLoading(true);
     setError(null);
     try {
-      await api<Note>("/notes", {
+      await api("notes", {
         method: "POST",
         body: { title, body },
       });

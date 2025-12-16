@@ -22,3 +22,6 @@ class Database:
 
     def close(self) -> None:
         self._pool.close()
+
+    def table():
+        pass
