@@ -12,7 +12,7 @@ export default function App(): any {
 
   async function refresh() {
     setError(null);
-    const data = await api("notes") as unknown as Note[];
+    const data = await api("notes.get") as unknown as Note[];
     setNotes(data);
   }
 
@@ -24,7 +24,7 @@ export default function App(): any {
     setLoading(true);
     setError(null);
     try {
-      await api("notes", {
+      await api("notes.post", {
         method: "POST",
         body: { title, body },
       });

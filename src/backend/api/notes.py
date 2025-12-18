@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from declarations.notes import Notes, Note, Notebook
 
-import db, endpoints
+import db, backend.core.endpoints as endpoints
 
 class Endpoint(endpoints.Endpoint):
     def init(self):

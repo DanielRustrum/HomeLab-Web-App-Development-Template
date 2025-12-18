@@ -1,7 +1,0 @@
-app-name: Homelab App
-db-port: 8080
-run-functions-on-init:
-- background
-run-functions-on-cron:
-- 0 * * * *:cron
-

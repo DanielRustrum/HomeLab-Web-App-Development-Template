@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import cherrypy
-from backend.config import Settings
-from backend.db import Database
+from backend.core.config import Settings
+from backend.core.db import Database
 
 def _json(body, status=200):
     cherrypy.response.status = status

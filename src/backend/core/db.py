@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator, Any
 from psycopg_pool import ConnectionPool
-from backend.config import Settings
+from backend.core.config import Settings
 
 
 def table():
