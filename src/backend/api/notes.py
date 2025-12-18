@@ -1,22 +1,23 @@
-from dataclasses import dataclass, field
-from db import Database as db
+from dataclasses import dataclass
+from declarations.notes import Notes, Note, Notebook
 
-@db.table
-@dataclass
-class Note:
-    id: int
-    title: str
-    body: str
-    created_at: str
+import db, endpoints
 
-@dataclass
-class Notes:
-    notes: list[Note]
-
-class Route:
-    def __init__(self):
+class Endpoint(endpoints.Endpoint):
+    def init(self):
         pass
 
-    def index(self) -> Notes:
-        with db(Note) as table:
-            return table.execute()
+    def auth(self):
+        pass
+
+    def get(self) -> Notes:
+        with db.Query(Note) as notes:
+            return notes.execute()
+        
+    def post(self, note: Note, blank: int) -> None:
+        with db.Query([Note, Notebook]) as [notes, notebook]:
+            notes.insert(note).execute()
+            notebook.insert(note).execute()
+
+    def cleanup(self):
+        pass

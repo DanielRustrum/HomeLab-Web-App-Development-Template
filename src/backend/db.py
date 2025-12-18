@@ -5,6 +5,13 @@ from typing import Iterator, Any
 from psycopg_pool import ConnectionPool
 from backend.config import Settings
 
+
+def table():
+    pass
+
+class Query:
+    pass
+
 class Database:
     """Small psycopg pool wrapper.
 
