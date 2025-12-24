@@ -10,7 +10,7 @@ from __future__ import annotations
 import pathlib, os
 import cherrypy
 from backend.core.config import Settings
-from backend.core.routes import Api
+from backend.core.endpoints import mount_api
 from backend.core.web import WebApp
 
 
@@ -36,11 +36,11 @@ def main() -> None:
             "tools.encode.encoding": "utf-8",
         }
     }
-    cherrypy.tree.mount(Api(settings), "/api", config=api_config)
 
     if has_static:
         cherrypy.tree.mount(WebApp(static_dir), "/", config={"/": {}})
 
+    mount_api(api_root="/api", api_dir="api")
     cherrypy.engine.start()
     cherrypy.engine.block()
 

@@ -1,6 +1,6 @@
 from declarations.notes import Notes, Note, Notebook
-from backend.core import endpoints
 
+import backend.core.endpoints as endpoints
 
 class Endpoint(endpoints.Endpoint):
     def init(self):
@@ -10,9 +10,8 @@ class Endpoint(endpoints.Endpoint):
         pass
 
     def get(self) -> Notes:
-        return Notes([])
+        return Notes([Note(0, "test", "Ttestsets", "03030")])
         
-    @endpoints.params({"dry_run": bool})
     def post(self, note: Note, blank: int) -> None:
         pass
 

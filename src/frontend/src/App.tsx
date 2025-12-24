@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { api } from "./api";
-import { Note } from "./api.types";
+import { api, Contracts } from "./api";
 
 export default function App(): any {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<Contracts.Note[]>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
@@ -12,7 +11,7 @@ export default function App(): any {
 
   async function refresh() {
     setError(null);
-    const data = await api("notes.get") as unknown as Note[];
+    const data = (await api("notes.get")).notes;
     setNotes(data);
   }
 
@@ -25,8 +24,8 @@ export default function App(): any {
     setError(null);
     try {
       await api("notes.post", {
-        method: "POST",
-        body: { title, body },
+        note: Contracts.Note(0, title, body, new Date().toDateString()),
+        blank: 0
       });
       setTitle("");
       setBody("");

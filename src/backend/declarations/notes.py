@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-import db
+from backend.core import db
 
 type NoteId = int
 
-@db.table
+# @db.table
 @dataclass
 class Note:
     id: NoteId
@@ -11,7 +11,7 @@ class Note:
     body: str
     created_at: str
 
-@db.table
+# @db.table
 @dataclass
 class Notebook:
     id: int
