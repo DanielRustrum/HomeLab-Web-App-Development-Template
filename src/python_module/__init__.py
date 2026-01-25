@@ -1,0 +1,1 @@
+"""Python module entrypoint package."""

@@ -94,12 +94,14 @@ dev-logs:
 dev-workspace:
 	cd "$(ROOT)" && COMPOSE_BAKE=false docker compose --project-directory "$(ROOT)" -f "$(WORK_YAML)" up -d --build
 
+dev-workspace-stop:
+	cd "$(ROOT)" && docker compose --project-directory "$(ROOT)" -f "$(WORK_YAML)" down --remove-orphans; \
+	echo "✅ Stopped."
+
 dev-stop:
 	@set -e; \
 	echo "Stopping dev stack..."; \
 	cd "$(ROOT)" && docker compose --project-directory "$(ROOT)" -f "$(DEV_YAML)" down --remove-orphans; \
-	echo "Stopping workspace stack..."; \
-	cd "$(ROOT)" && docker compose --project-directory "$(ROOT)" -f "$(WORK_YAML)" down --remove-orphans; \
 	echo "✅ Stopped."
 
 dev-restart:

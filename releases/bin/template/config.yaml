@@ -1,0 +1,7 @@
+app:
+  name: Homelab App
+  port: 20020
+type_maps:
+  - UUID: string
+  - Result<T>: Array<{T}>
+  - Pair<T,U>: Array<{T}> | Array<{U}>

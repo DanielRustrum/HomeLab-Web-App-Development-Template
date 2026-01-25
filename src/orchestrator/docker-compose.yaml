@@ -1,0 +1,35 @@
+services:
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: src/orchestrator/Dockerfile
+    container_name: tsunami_orchestrator
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql+psycopg://app:app_password@db:5432/homelab_app
+      PYTHONPATH: /app/src/python_module:/app/src
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ../..:/app
+      - /temp:/temp
+    ports:
+      - "8080:8080"
+    command: ["python", "-u", "-m", "orchestrator.main", "--force"]
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    container_name: tsunami_orchestrator_db
+    environment:
+      POSTGRES_DB: homelab_app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - orchestration_pgdata:/var/lib/postgresql/data
+      - ../../src/db/init:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  orchestration_pgdata:
