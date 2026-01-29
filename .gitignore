@@ -27,4 +27,5 @@ dist/
 
 # Docker
 *.pid
-.nami/*
+.nami/
+.devcontainers/
