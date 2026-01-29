@@ -35,6 +35,7 @@ def main() -> None:
         assets_dir=os.getenv("TSUNAMI_ASSETS_DIR", "assets"),
         init_path=os.getenv("TSUNAMI_INIT_PATH", "init.py"),
         run_init=True,
+        dev_reload=(app_env == "dev"),
     )
 
     cherrypy.engine.start()

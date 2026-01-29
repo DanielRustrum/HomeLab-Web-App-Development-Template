@@ -68,10 +68,16 @@ export default defineConfig(() => {
   const outDir = process.env.OUT_DIR
     ? path.resolve(process.env.OUT_DIR)
     : path.resolve(process.cwd(), "dist");
+  const tsunamiModuleDir = path.resolve(rootDir, "../../ts_module/tsunami");
 
   return {
     root: rootDir,
     plugins: [react()],
+    resolve: {
+      alias: {
+        tsunami: tsunamiModuleDir,
+      },
+    },
     build: {
       outDir,
       emptyOutDir: true,

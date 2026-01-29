@@ -39,7 +39,7 @@ workspace: ## Start the framework workspace for feature development
 	@docker compose -f ops/docker/workspace.compose.yaml up -d --build
 
 build: ## Build the nami command into releases/bin
-	@bash ops/scripts/build_nami.sh
+	@NAMI_BUILD_USE_DOCKER=1 bash ops/scripts/build_nami.sh
 
 document: ## Auto-generate project docs
 	@bash ops/scripts/document.sh

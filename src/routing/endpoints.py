@@ -116,6 +116,7 @@ def mount_api(
     assets_dir: str | Path | None = None,
     init_path: str | Path | None = None,
     run_init: bool = True,
+    dev_reload: bool = False,
 ) -> None:
     """
     Mount the dynamic API/router tree and optional pages/assets handlers.
@@ -158,7 +159,12 @@ def mount_api(
     if run_init:
         _run_init_file(init_path)
 
-    router = ApiRouter(api_dir=api_dir_path, pages_dir=pages_dir_path, assets_dir=assets_dir_path)
+    router = ApiRouter(
+        api_dir=api_dir_path,
+        pages_dir=pages_dir_path,
+        assets_dir=assets_dir_path,
+        dev_reload=dev_reload,
+    )
     mount_path = "/" + api_root.strip("/")
     cherrypy.tree.mount(router, mount_path)
 
@@ -170,20 +176,32 @@ class ApiRouter:
     Mounted at /api. Uses default() to catch /api/* and dispatches to files in backend/api.
     """
 
-    def __init__(self, *, api_dir: Path, pages_dir: Path, assets_dir: Path) -> None:
+    def __init__(
+        self,
+        *,
+        api_dir: Path,
+        pages_dir: Path,
+        assets_dir: Path,
+        dev_reload: bool = False,
+    ) -> None:
         """Create a router with endpoint, page, and asset roots."""
         self.api_dir = Path(api_dir).resolve()
         self.pages_dir = Path(pages_dir).resolve()
         self.assets_dir = Path(assets_dir).resolve()
+        self._dev_reload = dev_reload
         self._routes = _build_route_table(self.api_dir)
         self._page_routes, self._not_found_page = _build_pages_route_table(self.pages_dir)
         self._endpoint_cache: dict[Path, type[Endpoint]] = {}
         self._manifest_cache: dict[str, Any] | None = None
+        self._manifest_mtime: int | None = None
+        self._routes_mtime = _dir_mtime(self.api_dir, suffixes={".py"})
+        self._pages_mtime = _dir_mtime(self.pages_dir, suffixes={".tsx"})
 
     @cherrypy.expose
     def index(self):
         """Serve the root path or TSX index page when available."""
         # /
+        self._maybe_refresh_routes()
         if cherrypy.request.method and cherrypy.request.method.upper() not in {"GET", "HEAD"}:
             raise cherrypy.HTTPError(405)
 
@@ -197,6 +215,7 @@ class ApiRouter:
     def __routes(self):
         """Return a debug list of discovered API routes."""
         # /api/__routes  (debug)
+        self._maybe_refresh_routes()
         return _serialize(
             {
                 "api_dir": str(self.api_dir),
@@ -207,8 +226,39 @@ class ApiRouter:
     @cherrypy.expose
     def default(self, *vpath, **_params):
         """Dispatch requests to assets, pages, or API endpoints."""
-        # /api/<anything...>
+        # /<anything...> (API also available under /api/*)
+        self._maybe_refresh_routes()
         segments = [s for s in vpath if s]
+        if segments and segments[0] == "api":
+            api_segments = segments[1:]
+            if not api_segments:
+                return _serialize(
+                    {
+                        "api_dir": str(self.api_dir),
+                        "routes": [r["pattern"] for r in self._routes],
+                    }
+                )
+            if len(api_segments) == 1 and api_segments[0] == "__routes":
+                return _serialize(
+                    {
+                        "api_dir": str(self.api_dir),
+                        "routes": [r["pattern"] for r in self._routes],
+                    }
+                )
+            method = (cherrypy.request.method or "GET").lower()
+            if method not in _HTTP_METHODS:
+                raise cherrypy.HTTPError(405)
+
+            match = _match_route(self._routes, api_segments)
+            if match is not None:
+                endpoint_cls = self._load_endpoint_cls(match["file"])
+                ep: Endpoint = endpoint_cls()
+                result = ep._run(method, match["params"])
+                return _serialize(result)
+
+            cherrypy.response.status = 404
+            return _serialize({"error": "No matching route"})
+
         if segments and segments[0] == "assets":
             return self._serve_asset(segments[1:])
         method = (cherrypy.request.method or "GET").lower()
@@ -282,7 +332,7 @@ class ApiRouter:
         if entry is None:
             raise cherrypy.HTTPError(500, f"Missing manifest entry for {key}")
 
-        scripts = _collect_js_assets(entry)
+        scripts = _collect_js_assets(manifest, entry)
         css_files = [css for css in entry.get("css", []) if isinstance(css, str)]
 
         html_lines: list[str] = [
@@ -316,17 +366,37 @@ class ApiRouter:
 
     def _load_manifest(self) -> dict[str, Any]:
         """Load the Vite manifest used to resolve built assets."""
-        if self._manifest_cache is not None:
-            return self._manifest_cache
+        manifest_path = _resolve_manifest_path(self.assets_dir)
+        if manifest_path is None:
+            raise cherrypy.HTTPError(500, f"Missing manifest in {self.assets_dir}")
 
-        manifest_path = self.assets_dir / "manifest.json"
-        if not manifest_path.exists():
-            manifest_path = self.assets_dir / ".vite" / "manifest.json"
-        if not manifest_path.exists():
-            raise cherrypy.HTTPError(500, f"Missing manifest: {manifest_path}")
+        if self._manifest_cache is not None:
+            if not self._dev_reload:
+                return self._manifest_cache
+            mtime = manifest_path.stat().st_mtime_ns
+            if self._manifest_mtime == mtime:
+                return self._manifest_cache
 
         self._manifest_cache = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self._manifest_mtime = manifest_path.stat().st_mtime_ns
         return self._manifest_cache
+
+    def _maybe_refresh_routes(self) -> None:
+        """Rebuild route tables when files change in dev mode."""
+        if not self._dev_reload:
+            return
+
+        routes_mtime = _dir_mtime(self.api_dir, suffixes={".py"})
+        pages_mtime = _dir_mtime(self.pages_dir, suffixes={".tsx"})
+        if routes_mtime == self._routes_mtime and pages_mtime == self._pages_mtime:
+            return
+
+        self._routes = _build_route_table(self.api_dir)
+        self._page_routes, self._not_found_page = _build_pages_route_table(self.pages_dir)
+        self._routes_mtime = routes_mtime
+        self._pages_mtime = pages_mtime
+        self._manifest_cache = None
+        self._manifest_mtime = None
 
     def _serve_asset(self, segments: list[str]) -> Any:
         """Serve a static asset from the configured assets directory."""
@@ -369,6 +439,34 @@ def _build_route_table(api_dir: Path) -> list[dict[str, t.Any]]:
     # Prefer more specific first: static beats dynamic, then longer/static beats shorter
     routes.sort(key=lambda r: (r["param_count"], -r["static_count"], r["pattern"]))
     return routes
+
+
+def _dir_mtime(root: Path, *, suffixes: set[str] | None = None) -> int:
+    """Return the newest mtime for files under root that match suffixes."""
+    if not root.exists():
+        return 0
+    newest = 0
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        if suffixes is not None and path.suffix not in suffixes:
+            continue
+        try:
+            newest = max(newest, path.stat().st_mtime_ns)
+        except OSError:
+            continue
+    return newest
+
+
+def _resolve_manifest_path(assets_dir: Path) -> Path | None:
+    """Return the Vite manifest path if it exists."""
+    manifest_path = assets_dir / "manifest.json"
+    if manifest_path.exists():
+        return manifest_path
+    manifest_path = assets_dir / ".vite" / "manifest.json"
+    if manifest_path.exists():
+        return manifest_path
+    return None
 
 
 def _tokens_from_path(file_path: Path, *, api_dir: Path) -> list[tuple[str, str]]:
@@ -507,7 +605,7 @@ def _entry_has_js_file(entry: dict[str, Any]) -> bool:
     return isinstance(file_name, str) and file_name.endswith(".js")
 
 
-def _collect_js_assets(entry: dict[str, Any]) -> list[str]:
+def _collect_js_assets(manifest: dict[str, Any], entry: dict[str, Any]) -> list[str]:
     """Collect JS assets for a manifest entry and its imports."""
     assets: list[str] = []
     file_name = entry.get("file")
@@ -515,7 +613,15 @@ def _collect_js_assets(entry: dict[str, Any]) -> list[str]:
         assets.append(file_name)
     for item in entry.get("imports", []) or []:
         if isinstance(item, str) and item.endswith(".js"):
-            assets.append(item)
+            imported = manifest.get(item)
+            if isinstance(imported, dict):
+                imported_file = imported.get("file")
+                if isinstance(imported_file, str) and imported_file.endswith(".js"):
+                    assets.append(imported_file)
+                else:
+                    assets.append(item)
+            else:
+                assets.append(item)
     return assets
 
 

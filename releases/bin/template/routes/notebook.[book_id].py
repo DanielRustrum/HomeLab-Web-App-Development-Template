@@ -1,5 +1,6 @@
-from utils.notes import Notes, NoteInsert, Queries
 import tsunami as nami
+
+from utils.note_empty import Notes
 
 class Endpoint(nami.Endpoint):
     def init(self):

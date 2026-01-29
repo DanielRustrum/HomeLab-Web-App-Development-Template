@@ -14,7 +14,7 @@ services:
       - /temp:/temp
     ports:
       - "8080:8080"
-    command: ["python", "-u", "-m", "orchestrator.main", "--force"]
+    command: ["python", "-u", "-m", "orchestrator.main", "--force", "--watch"]
     depends_on:
       - db
 
