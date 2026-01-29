@@ -9,6 +9,7 @@ from commands.dev import register_dev_command, run_dev_command
 from commands.help import register_help_command, run_help_command
 from commands.init import register_init_command, run_init_command
 from commands.install import register_install_command, run_install_command
+from commands.scan import register_scan_command, run_scan_command
 from commands.workspace import register_workspace_command, run_workspace_command
 
 
@@ -21,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     register_init_command(subparsers)
     register_dev_command(subparsers)
     register_install_command(subparsers)
+    register_scan_command(subparsers)
     register_workspace_command(subparsers)
     register_help_command(subparsers)
 
@@ -47,6 +49,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "install":
         try:
             return run_install_command(args)
+        except Exception as exc:
+            print(f"nami: {exc}", file=sys.stderr)
+            return 1
+    if args.command == "scan":
+        try:
+            return run_scan_command(args)
         except Exception as exc:
             print(f"nami: {exc}", file=sys.stderr)
             return 1

@@ -58,6 +58,9 @@ class TypeScriptGeneratorConfig:
 
     # Methods that accept a body (signature params become EndpointParams entries)
     body_methods: frozenset[str] = frozenset({"post", "put", "patch"})
+
+    # Methods treated as HTTP endpoint handlers for collection.
+    http_methods: frozenset[str] = frozenset({"get", "post", "put", "patch", "delete", "head", "options"})
     include_never_for_non_body: bool = True
 
     # Optional emitted maps
@@ -1001,6 +1004,10 @@ class Pipeline:
     ) -> list[EndpointMetadata]:
         """Collect Endpoint methods and build endpoint metadata."""
         collected_endpoints: list[EndpointMetadata] = []
+        effective_allowed_methods = allowed_methods
+        if effective_allowed_methods is None:
+            effective_allowed_methods = set(config.http_methods)
+            effective_allowed_methods.add("index")
 
         for parsed_file in parsed_files:
             if parsed_file.file_path.name == "__init__.py":
@@ -1015,7 +1022,7 @@ class Pipeline:
                 sorted_methods = sorted_methods[:per_file_limit]
 
             for original_method_name, function_node in sorted_methods:
-                if allowed_methods is not None and original_method_name not in allowed_methods:
+                if effective_allowed_methods is not None and original_method_name not in effective_allowed_methods:
                     continue
 
                 effective_method_name = original_method_name
@@ -1455,7 +1462,7 @@ def transform_collect_endpoint_path_variables(endpoint_metadata: EndpointMetadat
 def emit_imports_section(generator_state: GeneratorState) -> list[str]:
     """Emit shared imports for the generated TypeScript file."""
     return [
-        'import { struct } from "./api.struct";',
+        'import { struct } from "tsunami";',
         "",
         "",
     ]
@@ -1683,6 +1690,19 @@ def emit_generic_endpoint_spec_maps(generator_state: GeneratorState) -> list[str
     return output_lines
 
 
+def emit_tsunami_module_augmentation(generator_state: GeneratorState) -> list[str]:
+    """Augment tsunami EndpointSpecMap with generated endpoint specs."""
+    return [
+        "type __TsunamiEndpointSpecMap = { [K in EndpointKey]: EndpointSpec<K> };",
+        "",
+        'declare module "tsunami" {',
+        "  interface EndpointSpecMap extends __TsunamiEndpointSpecMap {}",
+        "}",
+        "",
+        "",
+    ]
+
+
 # ============================================================
 # Example future decorator: @authorized("admin") / @authorized(role="admin")
 # ============================================================
@@ -1735,6 +1755,7 @@ def create_default_registry(config: TypeScriptGeneratorConfig) -> TransformerReg
 
     # Generic key-based maps (static wins over dynamic)
     registry.add_method(emit_generic_endpoint_spec_maps)
+    registry.add_method(emit_tsunami_module_augmentation)
 
     return registry
 
@@ -1756,7 +1777,12 @@ def main(argv: list[str] | None = None) -> int:
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument("inputs", nargs="+", help="Python files, globs, or directories")
     argument_parser.add_argument("--class", dest="route_class", default="Endpoint")
-    argument_parser.add_argument("--out", dest="out", default=None, help="Write to file instead of stdout")
+    argument_parser.add_argument(
+        "--out",
+        dest="out",
+        default=None,
+        help="Write to file instead of stdout (default: template/library/api.types.ts if present).",
+    )
 
     argument_parser.add_argument(
         "--allowed-methods",
@@ -1794,6 +1820,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
     parsed_args = argument_parser.parse_args(argv)
+    if parsed_args.out is None:
+        default_out_path = Path("template/library/api.types.ts")
+        if default_out_path.parent.is_dir():
+            parsed_args.out = str(default_out_path)
 
     type_mapping_overrides, generic_type_overrides = load_type_mapping(DEFAULT_TYPE_MAP_PATH)
     base_primitive_type_map = TypeScriptGeneratorConfig().primitive_type_map

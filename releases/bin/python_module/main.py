@@ -1,0 +1,6 @@
+"""Executable entrypoint that starts the routing server."""
+from routing.server import main
+
+
+if __name__ == "__main__":
+    main()
