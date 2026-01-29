@@ -1,3 +1,4 @@
+"""Initialize a new project from the repository template."""
 from __future__ import annotations
 
 import argparse
@@ -11,17 +12,20 @@ FALLBACK_TEMPLATE_DIR = REPO_ROOT / "template"
 
 
 def register_init_command(subparsers: argparse._SubParsersAction) -> None:
+    """Register the `init` subcommand and its CLI arguments."""
     init_parser = subparsers.add_parser("init", help="Copy the template into a destination directory.")
     init_parser.add_argument("dest", help="Destination directory.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
 
 
 def run_init_command(args: argparse.Namespace) -> int:
+    """Run the init workflow with parsed CLI arguments."""
     init_project(Path(args.dest), force=args.force)
     return 0
 
 
 def copy_item(src: Path, dst: Path, *, force: bool) -> None:
+    """Copy a file or directory, honoring the force-overwrite flag."""
     if src.is_dir():
         shutil.copytree(src, dst, dirs_exist_ok=force)
         return
@@ -32,6 +36,7 @@ def copy_item(src: Path, dst: Path, *, force: bool) -> None:
 
 
 def init_project(dest: Path, *, force: bool) -> None:
+    """Create a new project directory populated with the template files."""
     template_dir = LOCAL_TEMPLATE_DIR if LOCAL_TEMPLATE_DIR.exists() else FALLBACK_TEMPLATE_DIR
     if not template_dir.exists():
         raise FileNotFoundError(f"Template directory not found: {template_dir}")

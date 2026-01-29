@@ -1,3 +1,4 @@
+"""CLI wrapper for the template orchestrator pipeline."""
 from __future__ import annotations
 
 import argparse
@@ -6,6 +7,7 @@ from pathlib import Path
 
 
 def register_orchestrate_command(subparsers: argparse._SubParsersAction) -> None:
+    """Register the `orchestrate` subcommand and its CLI arguments."""
     parser = subparsers.add_parser("orchestrate", help="Compile templates and run runtime servers.")
     parser.add_argument("--template", help="Template directory.")
     parser.add_argument("--temp-root", help="Temp root for compile/runtime folders.")
@@ -15,6 +17,7 @@ def register_orchestrate_command(subparsers: argparse._SubParsersAction) -> None
 
 
 def run_orchestrate_command(args: argparse.Namespace) -> int:
+    """Invoke the orchestrator with CLI-selected options."""
     repo_root = Path(__file__).resolve().parents[3]
     src_root = repo_root / "src"
     if str(src_root) not in sys.path:

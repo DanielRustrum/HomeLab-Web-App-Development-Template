@@ -6,20 +6,23 @@ import argparse
 import sys
 
 from commands.dev import register_dev_command, run_dev_command
+from commands.help import register_help_command, run_help_command
 from commands.init import register_init_command, run_init_command
-from commands.orchestrate import register_orchestrate_command, run_orchestrate_command
+from commands.install import register_install_command, run_install_command
 from commands.workspace import register_workspace_command, run_workspace_command
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Create the root argparse parser and register subcommands."""
     parser = argparse.ArgumentParser(prog="nami", description="Generate a project from /template.")
+    parser.set_defaults(_root_parser=parser)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     register_init_command(subparsers)
     register_dev_command(subparsers)
-    register_orchestrate_command(subparsers)
+    register_install_command(subparsers)
     register_workspace_command(subparsers)
+    register_help_command(subparsers)
 
     return parser
 
@@ -41,9 +44,9 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             print(f"nami: {exc}", file=sys.stderr)
             return 1
-    if args.command == "orchestrate":
+    if args.command == "install":
         try:
-            return run_orchestrate_command(args)
+            return run_install_command(args)
         except Exception as exc:
             print(f"nami: {exc}", file=sys.stderr)
             return 1
@@ -53,6 +56,8 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             print(f"nami: {exc}", file=sys.stderr)
             return 1
+    if args.command == "help":
+        return run_help_command(args)
 
     parser.print_help()
     return 1
