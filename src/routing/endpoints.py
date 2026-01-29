@@ -1,3 +1,4 @@
+"""Dynamic endpoint/router loader for CherryPy-backed APIs and pages."""
 from __future__ import annotations
 
 import importlib.util
@@ -22,6 +23,7 @@ _INIT_ALREADY_RUN = False
 
 
 def _find_src_root(start: Path) -> Path:
+    """Walk parents to locate the src root by markers or fallback."""
     for parent in [start] + list(start.parents):
         if (parent / "endpoint").exists() or (parent / "routing").exists():
             return parent
@@ -40,11 +42,20 @@ _DEFAULT_INIT_PATH = _SRC_ROOT / "init.py"
 class Endpoint:
     """Base class for endpoint modules: class Endpoint(endpoints.Endpoint)."""
 
-    def init(self) -> None: ...
-    def auth(self) -> None: ...
-    def cleanup(self) -> None: ...
+    def init(self) -> None:
+        """Hook called before each request handler."""
+        ...
+
+    def auth(self) -> None:
+        """Hook for auth/authorization checks before handler execution."""
+        ...
+
+    def cleanup(self) -> None:
+        """Hook called after each request handler, even on errors."""
+        ...
 
     def _run(self, method: str, route_params: dict[str, str]) -> t.Any:
+        """Invoke a method with request/route-bound parameters."""
         self.init()
         try:
             self.auth()
@@ -61,12 +72,15 @@ class Endpoint:
 
 
 def params(spec: dict[str, Any]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Annotate endpoint methods with explicit query parameter metadata."""
     def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
+        """Return the function unchanged while carrying metadata."""
         return fn
     return deco
 
 
 def _run_init_file(init_path: str | Path | None) -> None:
+    """Execute the optional init.py module once per process."""
     global _INIT_ALREADY_RUN
     if _INIT_ALREADY_RUN:
         return
@@ -104,14 +118,14 @@ def mount_api(
     run_init: bool = True,
 ) -> None:
     """
-    Mount a dynamic router at / that maps endpoint files in src/endpoint/**.
+    Mount the dynamic API/router tree and optional pages/assets handlers.
 
     Filename rules:
-      notes.py            -> /notes
-      notes.[id].py       -> /notes/<id>
-      admin/users.py      -> /admin/users
-      admin/users.[uid].py-> /admin/users/<uid>
-      index.py            -> /
+      notes.py             -> /notes
+      notes.[id].py        -> /notes/<id>
+      admin/users.py       -> /admin/users
+      admin/users.[uid].py -> /admin/users/<uid>
+      index.py             -> /
     """
     global _ALREADY_MOUNTED
     if _ALREADY_MOUNTED:
@@ -157,6 +171,7 @@ class ApiRouter:
     """
 
     def __init__(self, *, api_dir: Path, pages_dir: Path, assets_dir: Path) -> None:
+        """Create a router with endpoint, page, and asset roots."""
         self.api_dir = Path(api_dir).resolve()
         self.pages_dir = Path(pages_dir).resolve()
         self.assets_dir = Path(assets_dir).resolve()
@@ -167,6 +182,7 @@ class ApiRouter:
 
     @cherrypy.expose
     def index(self):
+        """Serve the root path or TSX index page when available."""
         # /
         if cherrypy.request.method and cherrypy.request.method.upper() not in {"GET", "HEAD"}:
             raise cherrypy.HTTPError(405)
@@ -179,6 +195,7 @@ class ApiRouter:
 
     @cherrypy.expose
     def __routes(self):
+        """Return a debug list of discovered API routes."""
         # /api/__routes  (debug)
         return _serialize(
             {
@@ -189,6 +206,7 @@ class ApiRouter:
 
     @cherrypy.expose
     def default(self, *vpath, **_params):
+        """Dispatch requests to assets, pages, or API endpoints."""
         # /api/<anything...>
         segments = [s for s in vpath if s]
         if segments and segments[0] == "assets":
@@ -229,6 +247,7 @@ class ApiRouter:
         return _serialize(result)
 
     def _load_endpoint_cls(self, file_path: Path) -> type[Endpoint]:
+        """Load and cache the Endpoint class for a module path."""
         cached = self._endpoint_cache.get(file_path)
         if cached is not None:
             return cached
@@ -243,6 +262,7 @@ class ApiRouter:
         return endpoint_cls
 
     def _tsx_route_exists(self, file_path: Path) -> bool:
+        """Check if a TSX page exists for a matching endpoint path."""
         if not self.pages_dir.exists():
             return False
         try:
@@ -253,6 +273,7 @@ class ApiRouter:
         return tsx_path.exists()
 
     def _serve_page(self, page_path: Path, *, status: int) -> str:
+        """Render a minimal HTML shell for a TSX page route."""
         manifest = self._load_manifest()
         rel = page_path.relative_to(self.pages_dir).as_posix()
         key = rel[:-4] if rel.endswith(".tsx") else rel
@@ -294,6 +315,7 @@ class ApiRouter:
         return "\n".join(html_lines)
 
     def _load_manifest(self) -> dict[str, Any]:
+        """Load the Vite manifest used to resolve built assets."""
         if self._manifest_cache is not None:
             return self._manifest_cache
 
@@ -307,6 +329,7 @@ class ApiRouter:
         return self._manifest_cache
 
     def _serve_asset(self, segments: list[str]) -> Any:
+        """Serve a static asset from the configured assets directory."""
         rel = Path(*segments) if segments else Path()
         candidate = (self.assets_dir / rel).resolve()
 
@@ -320,6 +343,7 @@ class ApiRouter:
 
 
 def _build_route_table(api_dir: Path) -> list[dict[str, t.Any]]:
+    """Scan endpoint files and build a sorted routing table."""
     routes: list[dict[str, t.Any]] = []
 
     for p in sorted(api_dir.rglob("*.py"), key=lambda x: str(x).lower()):
@@ -348,6 +372,7 @@ def _build_route_table(api_dir: Path) -> list[dict[str, t.Any]]:
 
 
 def _tokens_from_path(file_path: Path, *, api_dir: Path) -> list[tuple[str, str]]:
+    """Convert a file path into route tokens (static/dynamic segments)."""
     rel = file_path.relative_to(api_dir)
 
     dir_parts = [] if str(rel.parent) == "." else list(rel.parent.parts)
@@ -372,6 +397,7 @@ def _tokens_from_path(file_path: Path, *, api_dir: Path) -> list[tuple[str, str]
 
 
 def _build_pages_route_table(pages_dir: Path) -> tuple[list[dict[str, t.Any]], Path | None]:
+    """Scan TSX pages and build a routing table plus optional 404 page."""
     routes: list[dict[str, t.Any]] = []
     not_found_page: Path | None = None
 
@@ -406,6 +432,7 @@ def _build_pages_route_table(pages_dir: Path) -> tuple[list[dict[str, t.Any]], P
 
 
 def _tokens_from_pages_path(file_path: Path, *, pages_dir: Path) -> list[tuple[str, str]]:
+    """Convert a page path into route tokens (static/dynamic segments)."""
     rel = file_path.relative_to(pages_dir)
 
     dir_parts = [] if str(rel.parent) == "." else list(rel.parent.parts)
@@ -429,6 +456,7 @@ def _tokens_from_pages_path(file_path: Path, *, pages_dir: Path) -> list[tuple[s
 
 
 def _find_manifest_entry_by_src(manifest: dict[str, Any], src_suffix: str) -> dict[str, Any] | None:
+    """Find a Vite manifest entry whose src ends with the given suffix."""
     for entry in manifest.values():
         if not isinstance(entry, dict):
             continue
@@ -443,6 +471,7 @@ def _resolve_manifest_entry(
     key: str,
     rel: str,
 ) -> dict[str, Any] | None:
+    """Resolve a manifest entry by key/rel fallback rules."""
     candidates = [
         f"__entries__/{key}",
         f"__entries__/{key}.tsx",
@@ -473,11 +502,13 @@ def _resolve_manifest_entry(
 
 
 def _entry_has_js_file(entry: dict[str, Any]) -> bool:
+    """Return True if a manifest entry points to a JS file."""
     file_name = entry.get("file")
     return isinstance(file_name, str) and file_name.endswith(".js")
 
 
 def _collect_js_assets(entry: dict[str, Any]) -> list[str]:
+    """Collect JS assets for a manifest entry and its imports."""
     assets: list[str] = []
     file_name = entry.get("file")
     if isinstance(file_name, str) and file_name.endswith(".js"):
@@ -489,6 +520,7 @@ def _collect_js_assets(entry: dict[str, Any]) -> list[str]:
 
 
 def _find_asset_entry_by_prefix(assets_dir: Path, prefix: str) -> dict[str, Any] | None:
+    """Fallback lookup for a JS asset entry by filename prefix."""
     if not assets_dir.exists():
         return None
 
@@ -505,6 +537,7 @@ def _find_asset_entry_by_prefix(assets_dir: Path, prefix: str) -> dict[str, Any]
 
 
 def _match_route(routes: list[dict[str, t.Any]], segments: list[str]) -> dict[str, t.Any] | None:
+    """Return the first route that matches the given URL segments."""
     for r in routes:
         tokens = r["tokens"]
         if len(tokens) != len(segments):
@@ -526,6 +559,7 @@ def _match_route(routes: list[dict[str, t.Any]], segments: list[str]) -> dict[st
 
 
 def _load_module_from_file(file_path: Path, *, api_dir: Path) -> ModuleType:
+    """Load a Python module from a file path with reload support."""
     backend_root = api_dir.parent  # /app/backend
     if str(backend_root) not in sys.path:
         sys.path.insert(0, str(backend_root))
@@ -573,6 +607,7 @@ def _load_module_from_file(file_path: Path, *, api_dir: Path) -> ModuleType:
 
 
 def _serialize(obj: t.Any) -> bytes:
+    """Serialize endpoint output to bytes, defaulting to JSON."""
     if obj is None:
         cherrypy.response.status = 204
         return b""
@@ -589,6 +624,7 @@ def _serialize(obj: t.Any) -> bytes:
 
 
 def _dataclass_to_plain(x: t.Any) -> t.Any:
+    """Recursively convert dataclasses to plain dicts/lists."""
     if is_dataclass(x):
         return {k: _dataclass_to_plain(v) for k, v in asdict(x).items()}
     if isinstance(x, list):
@@ -599,6 +635,7 @@ def _dataclass_to_plain(x: t.Any) -> t.Any:
 
 
 def _call_with_binding(fn: t.Callable[..., t.Any], route_params: dict[str, str]) -> t.Any:
+    """Bind request parameters/body to a callable and invoke it."""
     sig = inspect.signature(fn)
 
     merged: dict[str, t.Any] = dict(getattr(cherrypy.request, "params", {}) or {})
@@ -640,6 +677,7 @@ def _call_with_binding(fn: t.Callable[..., t.Any], route_params: dict[str, str])
 
 
 def _read_json_body() -> t.Any:
+    """Parse and cache a JSON request body, returning dict or None."""
     if hasattr(cherrypy.request, "_cached_json"):
         return getattr(cherrypy.request, "_cached_json")
 
@@ -659,6 +697,7 @@ def _read_json_body() -> t.Any:
 
 
 def _is_dataclass_type(ann: t.Any) -> bool:
+    """Return True when a type annotation is a dataclass class."""
     try:
         return inspect.isclass(ann) and is_dataclass(ann)
     except Exception:
@@ -666,6 +705,7 @@ def _is_dataclass_type(ann: t.Any) -> bool:
 
 
 def _coerce(value: t.Any, ann: t.Any) -> t.Any:
+    """Coerce basic types and dataclasses to match a signature annotation."""
     if ann in (None, inspect._empty):
         return value
 

@@ -1,3 +1,4 @@
+"""Run the development Docker compose stack for the template app."""
 from __future__ import annotations
 
 import argparse
@@ -9,11 +10,13 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def register_dev_command(subparsers: argparse._SubParsersAction) -> None:
+    """Register the `dev` subcommand and its CLI arguments."""
     dev_parser = subparsers.add_parser("dev", help="Run the template project in Docker.")
     dev_parser.add_argument("--no-build", action="store_true", help="Skip docker compose build.")
 
 
 def run_dev_command(args: argparse.Namespace) -> int:
+    """Launch the Docker compose stack, optionally forcing a rebuild."""
     compose_file = REPO_ROOT / "src" / "orchestrator" / "docker-compose.yaml"
     cmd = [
         "docker",

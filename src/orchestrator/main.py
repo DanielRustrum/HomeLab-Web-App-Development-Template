@@ -1,3 +1,4 @@
+"""Template orchestration: compile routes, build assets, and run servers."""
 from __future__ import annotations
 
 import argparse
@@ -14,6 +15,7 @@ VITE_PROJECT_DIR = REPO_ROOT / "src" / "orchestrator" / "vite"
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the orchestration pipeline from CLI-style arguments."""
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -46,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Create the CLI parser for orchestrator settings."""
     parser = argparse.ArgumentParser(description="Orchestrate template compilation and runtime.")
     parser.add_argument("--template", default=str(REPO_ROOT / "template"), help="Template directory.")
     parser.add_argument(
@@ -60,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def resolve_temp_root(raw: str) -> Path:
+    """Resolve a temp root directory, falling back to /tmp."""
     candidate = Path(raw)
     if candidate.exists():
         return candidate
@@ -68,6 +72,7 @@ def resolve_temp_root(raw: str) -> Path:
 
 
 def prepare_dir(path: Path, *, force: bool) -> None:
+    """Ensure a clean directory, optionally deleting an existing one."""
     if path.exists():
         if not force:
             raise FileExistsError(f"{path} already exists (use --force to overwrite)")
@@ -76,6 +81,7 @@ def prepare_dir(path: Path, *, force: bool) -> None:
 
 
 def stage_template(template_dir: Path, temp_compile: Path) -> None:
+    """Copy the template tree into the compile staging area."""
     if not template_dir.exists():
         raise FileNotFoundError(f"Template directory not found: {template_dir}")
 
@@ -83,6 +89,7 @@ def stage_template(template_dir: Path, temp_compile: Path) -> None:
 
 
 def build_assets(temp_compile: Path, runtime_root: Path) -> None:
+    """Build Vite assets from template routes into the runtime directory."""
     template_dir = temp_compile / "template"
     routes_dir = template_dir / "routes"
     if not routes_dir.exists():
@@ -110,6 +117,7 @@ def build_assets(temp_compile: Path, runtime_root: Path) -> None:
 
 
 def build_route_entries(routes_dir: Path, entries_dir: Path, template_dir: Path) -> None:
+    """Create Vite entrypoints for every route file."""
     if entries_dir.exists():
         shutil.rmtree(entries_dir)
     entries_dir.mkdir(parents=True, exist_ok=True)
@@ -175,6 +183,7 @@ def build_route_entries(routes_dir: Path, entries_dir: Path, template_dir: Path)
 
 
 def assemble_runtime(temp_compile: Path, runtime_root: Path) -> None:
+    """Assemble runtime layout with endpoints, pages, and assets."""
     template_dir = temp_compile / "template"
 
     routes_dir = template_dir / "routes"
@@ -209,6 +218,7 @@ def assemble_runtime(temp_compile: Path, runtime_root: Path) -> None:
 
 
 def run_servers(runtime_root: Path) -> int:
+    """Launch the routing server with the prepared runtime environment."""
     env = os.environ.copy()
     env["TSUNAMI_ENDPOINT_DIR"] = "endpoint"
     env["TSUNAMI_ROUTING_DIR"] = "routing"
@@ -232,6 +242,7 @@ def run_servers(runtime_root: Path) -> int:
 
 
 def copy_tree(src: Path, dst: Path) -> None:
+    """Copy a directory tree if the source exists."""
     if not src.exists():
         return
     shutil.copytree(src, dst, dirs_exist_ok=True)

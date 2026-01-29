@@ -11,11 +11,11 @@ NAMI := $(PYTHON) src/cli/nami.py
 help: ## Show available targets
 	@awk 'BEGIN {FS=":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-dev: ## Spin up the dev container used to test the nami command
-	$(NAMI) dev $(DEV_ARGS)
+dev: ## Spin up a contained env to test the nami CLI itself
+	@docker compose -f ops/docker/nami-dev.compose.yaml up -d --build
 
-workspace: ## Start the framework workspace container
-	$(NAMI) workspace $(WORKSPACE_ARGS)
+workspace: ## Start the framework workspace for feature development
+	@docker compose -f ops/docker/workspace.compose.yaml up -d --build
 
 build: ## Build the nami command into releases/bin
 	@bash ops/scripts/build_nami.sh

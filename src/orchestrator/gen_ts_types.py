@@ -1,3 +1,4 @@
+"""Generate TypeScript types from Python endpoint modules."""
 # generate_ts.py
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ DEFAULT_TYPE_MAP_PATH = ROOT_DIR / "src" / "type_mappings.yaml"
 
 
 def load_type_mapping(path: Path) -> tuple[dict[str, str], dict[str, tuple[list[str], str]]]:
+    """Load primitive and generic type mappings from a YAML-like file."""
     if not path.exists():
         return {}, {}
 
@@ -47,6 +49,7 @@ def load_type_mapping(path: Path) -> tuple[dict[str, str], dict[str, tuple[list[
 
 @dataclass(frozen=True)
 class TypeScriptGeneratorConfig:
+    """Configuration for translating Python typing into TypeScript."""
     route_class_name: str = "Endpoint"
     type_suffix: str = "Object"
 
@@ -102,6 +105,7 @@ DYNAMIC_SEGMENT_REGEX = re.compile(r"\[([^\]]+)\]")
 
 
 def to_pascal_case(text: str) -> str:
+    """Convert a path-like or dotted string into PascalCase."""
     normalized = re.sub(r"\[([^\]]+)\]", r"_\1_", text)
     normalized = normalized.replace(".", "_")
     normalized = re.sub(r"[^0-9a-zA-Z_]+", "_", normalized)
@@ -110,10 +114,12 @@ def to_pascal_case(text: str) -> str:
 
 
 def to_typescript_type_symbol(config: TypeScriptGeneratorConfig, python_name: str) -> str:
+    """Append the configured suffix to a Python symbol name."""
     return f"{python_name}{config.type_suffix}"
 
 
 def name_of_ast_expression(expression_node: ast.expr) -> Optional[str]:
+    """Return the identifier name for AST Name/Attribute nodes."""
     if isinstance(expression_node, ast.Name):
         return expression_node.id
     if isinstance(expression_node, ast.Attribute):
@@ -122,6 +128,7 @@ def name_of_ast_expression(expression_node: ast.expr) -> Optional[str]:
 
 
 def extract_path_variables(endpoint_key: str) -> list[str]:
+    """Extract bracketed path variables from an endpoint key."""
     found_variables = re.findall(r"\[([^\]]+)\]", endpoint_key)
     seen: set[str] = set()
     unique: list[str] = []
@@ -133,10 +140,12 @@ def extract_path_variables(endpoint_key: str) -> list[str]:
 
 
 def is_dynamic_endpoint_key(endpoint_key: str) -> bool:
+    """Return True if the endpoint key contains dynamic segments."""
     return bool(DYNAMIC_SEGMENT_REGEX.search(endpoint_key))
 
 
 def endpoint_key_to_template_literal_key(endpoint_key: str) -> str:
+    """Convert a dynamic endpoint key into a TS template literal key."""
     # "notes.[test].get" -> `notes.${string}.get`
     template_key = DYNAMIC_SEGMENT_REGEX.sub(r"${string}", endpoint_key)
     return f"`{template_key}`"
@@ -180,6 +189,7 @@ def build_dynamic_template_index(
     return original_key_by_template_key
 
 def normalize_annotation_for_signature(annotation_node: ast.expr | None) -> str:
+    """Normalize annotation nodes for structural signature comparisons."""
     if annotation_node is None:
         return "<none>"
     try:
@@ -189,6 +199,7 @@ def normalize_annotation_for_signature(annotation_node: ast.expr | None) -> str:
         return ast.dump(annotation_node, include_attributes=False)
 
 def collect_dataclass_base_names(dataclass_node: ast.ClassDef) -> list[str]:
+    """Return base class names for a dataclass AST node."""
     base_names: list[str] = []
     for base_expression in dataclass_node.bases:
         base_name = name_of_ast_expression(base_expression)
@@ -221,6 +232,7 @@ def build_dataclass_shape_signature(dataclass_node: ast.ClassDef) -> tuple[tuple
 
 @dataclass(frozen=True)
 class DecoratorInstance:
+    """Captured metadata for a decorator expression in the AST."""
     decorator_name: str
     decorator_expression: ast.expr
     call_node: ast.Call | None
@@ -229,6 +241,7 @@ class DecoratorInstance:
 
 
 def extract_decorator_instance(decorator_expression: ast.expr) -> DecoratorInstance:
+    """Parse a decorator expression into a normalized structure."""
     call_node: ast.Call | None = decorator_expression if isinstance(decorator_expression, ast.Call) else None
     callable_expression = call_node.func if call_node else decorator_expression
 
@@ -279,6 +292,7 @@ def is_dataclass_decorator_expression(decorator_expression: ast.expr) -> bool:
 
 
 def collect_dataclass_class_nodes(module_node: ast.Module) -> dict[str, ast.ClassDef]:
+    """Collect top-level dataclass class definitions by name."""
     dataclass_nodes_by_name: dict[str, ast.ClassDef] = {}
     for top_level_node in module_node.body:
         if not isinstance(top_level_node, ast.ClassDef):
@@ -289,6 +303,7 @@ def collect_dataclass_class_nodes(module_node: ast.Module) -> dict[str, ast.Clas
 
 
 def collect_dataclass_fields(dataclass_node: ast.ClassDef) -> list[tuple[str, ast.expr]]:
+    """Collect annotated fields declared on a dataclass."""
     field_definitions: list[tuple[str, ast.expr]] = []
     for class_statement in dataclass_node.body:
         if isinstance(class_statement, ast.AnnAssign) and isinstance(class_statement.target, ast.Name):
@@ -301,16 +316,19 @@ def collect_dataclass_fields_including_bases(
     *,
     symbol_index: "SymbolIndex",
 ) -> list[tuple[str, ast.expr]]:
+    """Collect fields from a dataclass including inherited base fields."""
     fields_by_name: dict[str, ast.expr] = {}
     field_order: list[str] = []
 
     def add_fields(field_definitions: list[tuple[str, ast.expr]]) -> None:
+        """Merge field definitions into the ordered field map."""
         for field_name, annotation_node in field_definitions:
             if field_name not in fields_by_name:
                 field_order.append(field_name)
             fields_by_name[field_name] = annotation_node
 
     def visit(node: ast.ClassDef, *, resolving: set[str]) -> None:
+        """Depth-first walk of base classes to accumulate inherited fields."""
         for base_name in collect_dataclass_base_names(node):
             base_metadata = symbol_index.dataclasses_by_name.get(base_name)
             if base_metadata is None:
@@ -328,6 +346,7 @@ def collect_dataclass_fields_including_bases(
 
 
 def collect_route_methods(module_node: ast.Module, route_class_name: str) -> dict[str, ast.FunctionDef]:
+    """Collect public methods from the configured route class."""
     for top_level_node in module_node.body:
         if isinstance(top_level_node, ast.ClassDef) and top_level_node.name == route_class_name:
             methods_by_name: dict[str, ast.FunctionDef] = {}
@@ -405,6 +424,7 @@ def collect_method_parameters(
 
 @dataclass
 class PythonToTypeScriptTypeTranslator:
+    """Translate Python AST type annotations into TypeScript type strings."""
     config: TypeScriptGeneratorConfig
     known_dataclass_names: set[str]
     alias_definitions: dict[str, ast.expr]
@@ -419,6 +439,7 @@ class PythonToTypeScriptTypeTranslator:
         preserve_alias_symbols: bool = True,
         resolving_alias_names: Optional[set[str]] = None,
     ) -> str:
+        """Translate a Python annotation AST node into a TS type string."""
         if resolving_alias_names is None:
             resolving_alias_names = set()
 
@@ -581,12 +602,14 @@ class PythonToTypeScriptTypeTranslator:
 
 @dataclass(frozen=True)
 class ParsedPythonFile:
+    """Parsed Python file paired with its AST module node."""
     file_path: Path
     module_node: ast.Module
 
 
 @dataclass(frozen=True)
 class DataclassMetadata:
+    """Metadata for a discovered dataclass in the AST."""
     class_name: str
     class_node: ast.ClassDef
     source_file: Path
@@ -594,6 +617,7 @@ class DataclassMetadata:
 
 @dataclass(frozen=True)
 class EndpointMetadata:
+    """Metadata describing a routed endpoint method."""
     endpoint_key: str
     method_name: str
     file_stem: str
@@ -603,6 +627,7 @@ class EndpointMetadata:
 
 @dataclass
 class SymbolIndex:
+    """Index of discovered dataclasses and aliases across parsed files."""
     dataclasses_by_name: dict[str, DataclassMetadata] = field(default_factory=dict)
     aliases_by_name: dict[str, ast.expr] = field(default_factory=dict)
     dataclass_sources: dict[str, Path] = field(default_factory=dict)
@@ -623,6 +648,7 @@ ParameterDefinition = tuple[str, ast.expr | None, bool, ast.expr | None]
 
 @dataclass(frozen=True)
 class ParameterInterfaceSpec:
+    """Spec for emitting request parameter interfaces."""
     export_name: str          # "NotesPostBody"
     interface_name: str       # "NotesPostBodyType"
     parameters: list[ParameterDefinition]
@@ -630,6 +656,7 @@ class ParameterInterfaceSpec:
 
 @dataclass(frozen=True)
 class ResponseWrapperSpec:
+    """Spec for emitting response wrapper interfaces."""
     export_name: str          # "NotesGet"
     interface_name: str       # "NotesGetType"
     base_dataclass_name: str  # "Notes"
@@ -637,6 +664,7 @@ class ResponseWrapperSpec:
 
 @dataclass
 class GeneratorState:
+    """State container for the TypeScript generation pipeline."""
     config: TypeScriptGeneratorConfig
     parsed_files: list[ParsedPythonFile]
     symbol_index: SymbolIndex
@@ -706,6 +734,7 @@ StateEmitter = Callable[[GeneratorState], list[str]]
 
 @dataclass
 class TransformerRegistry:
+    """Registry of transformers and emitters used by the pipeline."""
     class_decorator_transformers_by_name: dict[str, list[ClassDecoratorTransformer]] = field(default_factory=dict)
     method_decorator_transformers_by_name: dict[str, list[MethodDecoratorTransformer]] = field(default_factory=dict)
 
@@ -713,12 +742,15 @@ class TransformerRegistry:
     state_emitters: list[StateEmitter] = field(default_factory=list)
 
     def add_class_decorator(self, decorator_name: str, transformer: ClassDecoratorTransformer) -> None:
+        """Register a transformer for a class decorator name."""
         self.class_decorator_transformers_by_name.setdefault(decorator_name, []).append(transformer)
 
     def add_method_decorator(self, decorator_name: str, transformer: MethodDecoratorTransformer) -> None:
+        """Register a transformer for a method decorator name."""
         self.method_decorator_transformers_by_name.setdefault(decorator_name, []).append(transformer)
 
     def add_method(self, transformer: MethodTransformer | StateEmitter) -> None:
+        """Register a method transformer or a state emitter."""
         # Overload-ish: (EndpointMetadata, GeneratorState) vs (GeneratorState)->list[str]
         argument_count = getattr(getattr(transformer, "__code__", None), "co_argcount", None)
         if argument_count == 2:
@@ -732,6 +764,7 @@ class TransformerRegistry:
 # ============================================================
 
 class Pipeline:
+    """Pipeline to parse Python files and emit TypeScript typings."""
     @staticmethod
     def build_state(
         registry: TransformerRegistry,
@@ -741,6 +774,7 @@ class Pipeline:
         allowed_methods: set[str] | None = None,
         per_file_limit: int | None = None,
     ) -> GeneratorState:
+        """Parse inputs and build the generator state."""
         python_files = Pipeline._collect_python_files(inputs)
         parsed_files = Pipeline._parse_python_files(python_files)
         symbol_index = Pipeline._build_symbol_index(parsed_files)
@@ -804,6 +838,7 @@ class Pipeline:
 
     @staticmethod
     def emit_typescript(registry: TransformerRegistry, generator_state: GeneratorState) -> str:
+        """Emit TypeScript output from a prepared generator state."""
         output_lines: list[str] = []
         for emitter in registry.state_emitters:
             output_lines.extend(emitter(generator_state))
@@ -818,6 +853,7 @@ class Pipeline:
         allowed_methods: set[str] | None = None,
         per_file_limit: int | None = None,
     ) -> str:
+        """Parse inputs and emit TypeScript in one step."""
         generator_state = Pipeline.build_state(
             registry,
             inputs=inputs,
@@ -831,6 +867,7 @@ class Pipeline:
 
     @staticmethod
     def _collect_python_files(inputs: Iterable[str]) -> list[Path]:
+        """Collect Python files from paths, directories, or globs."""
         discovered_files: list[Path] = []
 
         for raw_input in inputs:
@@ -870,6 +907,7 @@ class Pipeline:
 
     @staticmethod
     def _parse_python_files(python_files: list[Path]) -> list[ParsedPythonFile]:
+        """Parse each file into an AST module node."""
         parsed_files: list[ParsedPythonFile] = []
         for file_path in python_files:
             source_text = file_path.read_text(encoding="utf-8")
@@ -885,6 +923,7 @@ class Pipeline:
 
     @staticmethod
     def _build_symbol_index(parsed_files: list[ParsedPythonFile]) -> SymbolIndex:
+        """Build a symbol index of dataclasses and aliases."""
         symbol_index = SymbolIndex()
 
         for parsed_file in parsed_files:
@@ -960,6 +999,7 @@ class Pipeline:
         allowed_methods: set[str] | None,
         per_file_limit: int | None,
     ) -> list[EndpointMetadata]:
+        """Collect Endpoint methods and build endpoint metadata."""
         collected_endpoints: list[EndpointMetadata] = []
 
         for parsed_file in parsed_files:
@@ -1032,6 +1072,7 @@ def compute_typescript_import_path_without_extension(from_file: Path, to_file: P
 
 
 def collect_contract_export_names(generator_state: GeneratorState) -> list[str]:
+    """Collect exported symbol names for the contracts module."""
     value_export_names: set[str] = set()
 
     value_export_names.update(generator_state.emitted_dataclass_names)
@@ -1044,6 +1085,7 @@ def collect_contract_export_names(generator_state: GeneratorState) -> list[str]:
 
 
 def render_contracts_typescript_file(generator_state: GeneratorState, *, types_module_path: str) -> str:
+    """Render the re-export contracts TypeScript file."""
     value_exports = collect_contract_export_names(generator_state)
 
     output_lines: list[str] = []
@@ -1063,6 +1105,7 @@ def render_contracts_typescript_file(generator_state: GeneratorState, *, types_m
 
 
 def emit_parameter_interface_spec(generator_state: GeneratorState, spec: ParameterInterfaceSpec) -> list[str]:
+    """Emit TypeScript for a parameter interface and struct helper."""
     type_translator = generator_state.type_translator
 
     output_lines: list[str] = []
@@ -1102,6 +1145,7 @@ def emit_parameter_interface_spec(generator_state: GeneratorState, spec: Paramet
 
 
 def emit_dataclass_interface_lines(generator_state: GeneratorState, dataclass_name: str) -> list[str]:
+    """Emit TypeScript for a dataclass definition and dependencies."""
     config = generator_state.config
     type_translator = generator_state.type_translator
     symbol_index = generator_state.symbol_index
@@ -1156,6 +1200,7 @@ def emit_dataclass_interface_lines(generator_state: GeneratorState, dataclass_na
 
 
 def emit_response_wrapper_spec(generator_state: GeneratorState, spec: ResponseWrapperSpec) -> list[str]:
+    """Emit TypeScript for a response wrapper interface."""
     # Wrappers are not used by default now, but keeping the mechanism for future extensions.
     config = generator_state.config
     type_translator = generator_state.type_translator
@@ -1242,6 +1287,7 @@ def transform_collect_endpoint_query_params_from_decorator(
     endpoint_metadata: EndpointMetadata,
     generator_state: GeneratorState,
 ) -> None:
+    """Record query parameter types declared via @params decorator."""
     config = generator_state.config
     type_translator = generator_state.type_translator
 
@@ -1283,6 +1329,7 @@ def transform_collect_endpoint_query_params_from_decorator(
 # ============================================================
 
 def get_query_param_names_for_endpoint(generator_state: GeneratorState, endpoint_key: str) -> set[str]:
+    """Return the set of query parameter names for an endpoint."""
     export_name = generator_state.endpoint_query_types.get(endpoint_key)
     if not export_name:
         return set()
@@ -1295,6 +1342,7 @@ def get_query_param_names_for_endpoint(generator_state: GeneratorState, endpoint
 
 
 def transform_set_query_params_default_never(endpoint_metadata: EndpointMetadata, generator_state: GeneratorState) -> None:
+    """Ensure endpoints default to never for query params when none are defined."""
     config = generator_state.config
     if not config.emit_query_params:
         return
@@ -1304,6 +1352,7 @@ def transform_set_query_params_default_never(endpoint_metadata: EndpointMetadata
 
 
 def transform_collect_endpoint_body_params_from_signature(endpoint_metadata: EndpointMetadata, generator_state: GeneratorState) -> None:
+    """Collect request body parameters from endpoint method signatures."""
     config = generator_state.config
     type_translator = generator_state.type_translator
 
@@ -1346,6 +1395,7 @@ def transform_collect_endpoint_body_params_from_signature(endpoint_metadata: End
 
 
 def transform_collect_endpoint_response_types(endpoint_metadata: EndpointMetadata, generator_state: GeneratorState) -> None:
+    """Collect response type mappings for endpoint methods."""
     config = generator_state.config
     type_translator = generator_state.type_translator
     known_dataclass_names = set(generator_state.symbol_index.dataclasses_by_name.keys())
@@ -1386,6 +1436,7 @@ def transform_collect_endpoint_response_types(endpoint_metadata: EndpointMetadat
 
 
 def transform_collect_endpoint_path_variables(endpoint_metadata: EndpointMetadata, generator_state: GeneratorState) -> None:
+    """Collect path parameter names from dynamic endpoint keys."""
     config = generator_state.config
     if not config.emit_path_params:
         return
@@ -1402,6 +1453,7 @@ def transform_collect_endpoint_path_variables(endpoint_metadata: EndpointMetadat
 # ============================================================
 
 def emit_imports_section(generator_state: GeneratorState) -> list[str]:
+    """Emit shared imports for the generated TypeScript file."""
     return [
         'import { struct } from "./api.struct";',
         "",
@@ -1410,6 +1462,7 @@ def emit_imports_section(generator_state: GeneratorState) -> list[str]:
 
 
 def emit_referenced_dataclasses_section(generator_state: GeneratorState) -> list[str]:
+    """Emit all referenced dataclass interfaces."""
     output_lines: list[str] = []
     for dataclass_name in sorted(generator_state.referenced_dataclass_names):
         output_lines.extend(emit_dataclass_interface_lines(generator_state, dataclass_name))
@@ -1417,6 +1470,7 @@ def emit_referenced_dataclasses_section(generator_state: GeneratorState) -> list
 
 
 def emit_response_wrappers_section(generator_state: GeneratorState) -> list[str]:
+    """Emit response wrapper interfaces when configured."""
     # By default you won't have wrappers now; kept for future extension compatibility.
     output_lines: list[str] = []
     for export_name, wrapper_spec in sorted(generator_state.response_wrappers.items(), key=lambda item: item[0]):
@@ -1425,6 +1479,7 @@ def emit_response_wrappers_section(generator_state: GeneratorState) -> list[str]
 
 
 def emit_referenced_aliases_section(generator_state: GeneratorState) -> list[str]:
+    """Emit referenced type aliases translated to TypeScript."""
     if not generator_state.referenced_alias_names:
         return []
 
@@ -1452,6 +1507,7 @@ def emit_referenced_aliases_section(generator_state: GeneratorState) -> list[str
 
 
 def emit_passthrough_generic_types_section(generator_state: GeneratorState) -> list[str]:
+    """Emit passthrough generic type helpers for unmodeled generics."""
     passthrough = generator_state.referenced_passthrough_generic_arity
     if not passthrough:
         return []
@@ -1471,6 +1527,7 @@ def emit_passthrough_generic_types_section(generator_state: GeneratorState) -> l
 
 
 def emit_body_param_interfaces_section(generator_state: GeneratorState) -> list[str]:
+    """Emit request body parameter interfaces."""
     output_lines: list[str] = []
     for export_name, spec in sorted(generator_state.body_parameter_interfaces.items(), key=lambda item: item[0]):
         output_lines.extend(emit_parameter_interface_spec(generator_state, spec))
@@ -1478,6 +1535,7 @@ def emit_body_param_interfaces_section(generator_state: GeneratorState) -> list[
 
 
 def emit_query_param_interfaces_section(generator_state: GeneratorState) -> list[str]:
+    """Emit query parameter interfaces."""
     output_lines: list[str] = []
     for export_name, spec in sorted(generator_state.query_parameter_interfaces.items(), key=lambda item: item[0]):
         output_lines.extend(emit_parameter_interface_spec(generator_state, spec))
@@ -1515,17 +1573,20 @@ def emit_generic_endpoint_spec_maps(generator_state: GeneratorState) -> list[str
     )
 
     def typescript_body_type_for(endpoint_key: str) -> str:
+        """Resolve the TypeScript body type for an endpoint key."""
         mapped_type = generator_state.endpoint_body_types.get(endpoint_key)
         if mapped_type is not None:
             return mapped_type
         return "never" if generator_state.config.include_never_for_non_body else "unknown"
 
     def typescript_query_type_for(endpoint_key: str) -> str:
+        """Resolve the TypeScript query type for an endpoint key."""
         if not generator_state.config.emit_query_params:
             return "never"
         return generator_state.endpoint_query_types.get(endpoint_key, "never")
 
     def typescript_path_type_for(endpoint_key: str) -> str:
+        """Resolve the TypeScript path params type for an endpoint key."""
         if not generator_state.config.emit_path_params:
             return "never"
         variable_names = generator_state.endpoint_path_variables.get(endpoint_key)
@@ -1535,6 +1596,7 @@ def emit_generic_endpoint_spec_maps(generator_state: GeneratorState) -> list[str
         return f"{{ {fields_literal} }}"
 
     def dynamic_sort_key(endpoint_key: str) -> tuple[int, int, str]:
+        """Sort key to prioritize more specific dynamic routes."""
         # IMPORTANT: more variables first to reduce overlap issues.
         variable_count = len(extract_path_variables(endpoint_key))
         return (-variable_count, -len(endpoint_key), endpoint_key)
@@ -1630,6 +1692,7 @@ def transform_collect_authorized_method_decorator(
     endpoint_metadata: EndpointMetadata,
     generator_state: GeneratorState,
 ) -> None:
+    """Collect optional authorization role metadata from decorators."""
     role_expression: ast.expr | None = None
 
     if decorator_instance.positional_args:
@@ -1649,6 +1712,7 @@ def transform_collect_authorized_method_decorator(
 # ============================================================
 
 def create_default_registry(config: TypeScriptGeneratorConfig) -> TransformerRegistry:
+    """Build the default registry of transformers and emitters."""
     registry = TransformerRegistry()
 
     # Decorator-driven collection (registry controlled)
@@ -1680,6 +1744,7 @@ def create_default_registry(config: TypeScriptGeneratorConfig) -> TransformerReg
 # ============================================================
 
 def parse_allowed_methods(raw_value: str | None) -> set[str] | None:
+    """Parse a comma-separated list of HTTP methods from CLI input."""
     if not raw_value:
         return None
     parts = {part.strip() for part in raw_value.split(",") if part.strip()}
@@ -1687,6 +1752,7 @@ def parse_allowed_methods(raw_value: str | None) -> set[str] | None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI entrypoint for generating TypeScript types."""
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument("inputs", nargs="+", help="Python files, globs, or directories")
     argument_parser.add_argument("--class", dest="route_class", default="Endpoint")

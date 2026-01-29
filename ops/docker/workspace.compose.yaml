@@ -1,0 +1,18 @@
+services:
+  workspace:
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile
+    container_name: framework_workspace
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+      - workspace_home:/home
+    ports:
+      - "${TSUNAMI_PORT:-23541}:23541"
+    environment:
+      TSUNAMI_PORT: "23541"
+    command: ["sleep", "infinity"]
+
+volumes:
+  workspace_home:

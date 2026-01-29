@@ -1,3 +1,4 @@
+"""Executable entrypoint that starts the routing server."""
 from routing.server import main
 
 

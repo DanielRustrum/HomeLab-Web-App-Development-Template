@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""CLI entrypoint for project generation and orchestration helpers."""
 from __future__ import annotations
 
 import argparse
@@ -11,6 +12,7 @@ from commands.workspace import register_workspace_command, run_workspace_command
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Create the root argparse parser and register subcommands."""
     parser = argparse.ArgumentParser(prog="nami", description="Generate a project from /template.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -23,6 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Dispatch the selected subcommand and normalize exit codes."""
     parser = build_parser()
     args = parser.parse_args(argv)
 

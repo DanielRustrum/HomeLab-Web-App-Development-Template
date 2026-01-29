@@ -5,6 +5,9 @@ import path from "node:path";
 
 type InputMap = Record<string, string>;
 
+/**
+ * Load a precomputed entries manifest if one exists.
+ */
 function loadEntriesManifest(filePath: string | undefined, rootDir: string): InputMap | null {
   const resolvedPath = filePath
     ? path.resolve(filePath)
@@ -18,6 +21,9 @@ function loadEntriesManifest(filePath: string | undefined, rootDir: string): Inp
   }
 }
 
+/**
+ * Walk the routes directory and map TSX files to Vite entry keys.
+ */
 function collectEntries(routesDir: string, rootDir: string): InputMap {
   const entries: InputMap = {
     "shell.html": path.resolve(rootDir, "shell.html"),
@@ -51,6 +57,7 @@ function collectEntries(routesDir: string, rootDir: string): InputMap {
 }
 
 export default defineConfig(() => {
+  // Resolve build inputs and output directory from environment, with fallbacks.
   const rootDir = process.env.VITE_ROOT
     ? path.resolve(process.env.VITE_ROOT)
     : process.cwd();

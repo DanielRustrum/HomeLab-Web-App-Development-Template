@@ -1,3 +1,4 @@
+"""Start the development workspace container and optional shell."""
 from __future__ import annotations
 
 import argparse
@@ -9,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def register_workspace_command(subparsers: argparse._SubParsersAction) -> None:
+    """Register the `workspace` subcommand and its CLI arguments."""
     parser = subparsers.add_parser(
         "workspace",
         help="Start the workspace container for development.",
@@ -22,6 +24,7 @@ def register_workspace_command(subparsers: argparse._SubParsersAction) -> None:
 
 
 def run_workspace_command(args: argparse.Namespace) -> int:
+    """Bring up the workspace container and optionally open a shell."""
     compose_file = REPO_ROOT / "ops" / "docker" / "workspace.compose.yaml"
     cmd = [
         "docker",

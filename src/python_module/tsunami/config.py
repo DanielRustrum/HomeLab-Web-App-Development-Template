@@ -1,8 +1,11 @@
+"""Configuration helpers backed by Pydantic settings."""
 from __future__ import annotations
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
+
 class Settings(BaseSettings):
+    """Application settings sourced from env files and environment variables."""
     model_config = SettingsConfigDict(env_file=(".env","backend/.env"), env_file_encoding="utf-8", extra="ignore")
 
     # App
@@ -20,6 +23,7 @@ class Settings(BaseSettings):
 
     @property
     def resolved_dsn(self) -> str:
+        """Return the resolved database URL, falling back to DB_* pieces."""
         if self.database_url and self.database_url.strip():
             return self.database_url.strip()
         # psycopg uses RFC-1738 style URLs; "postgresql://" is fine.

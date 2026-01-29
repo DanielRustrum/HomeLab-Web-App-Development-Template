@@ -1,0 +1,18 @@
+services:
+  nami-dev:
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile
+    container_name: nami_dev
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+      - nami_dev_home:/home
+    ports:
+      - "${TSUNAMI_PORT:-23541}:23541"
+    environment:
+      TSUNAMI_PORT: "23541"
+    command: ["sleep", "infinity"]
+
+volumes:
+  nami_dev_home:

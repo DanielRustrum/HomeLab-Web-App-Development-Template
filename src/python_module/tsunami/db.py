@@ -1,3 +1,4 @@
+"""Database helpers, schema mapping, and query utilities."""
 # backend/core/db.py
 from __future__ import annotations
 
@@ -72,10 +73,12 @@ K = TypeVar("K")
 
 
 class Key(Generic[K]):
+    """Marker wrapper indicating a primary key field."""
     __db_marker__ = "key"
 
 
 class Unique(Generic[K]):
+    """Marker wrapper indicating a unique field."""
     __db_marker__ = "unique"
 
 
@@ -85,6 +88,7 @@ unique = Unique
 
 
 def _unwrap_aliases(tp: Any) -> Any:
+    """Resolve alias wrappers (TypeAliasType/NewType) to their base type."""
     # unwrap PEP 695 alias: `type NoteId = int`
     if TypeAliasType is not None and isinstance(tp, TypeAliasType):  # type: ignore[arg-type]
         return _unwrap_aliases(tp.__value__)  # type: ignore[attr-defined]
@@ -109,6 +113,7 @@ def _analyze_type(tp: Any) -> tuple[Any, bool, bool, bool]:
     is_unique = False
 
     def walk(t: Any) -> tuple[Any, bool]:
+        """Walk nested annotations to identify flags and base type."""
         nonlocal is_pk, is_unique
 
         t = _unwrap_aliases(t)
@@ -166,6 +171,7 @@ def bind_db(db: "DB") -> None:
 
 
 def get_db() -> "DB":
+    """Return the bound DB or raise if no DB is configured."""
     db = _BOUND_DB
     if db is None:
         raise RuntimeError("DB not bound in this process. Call init_db(...) during startup.")
@@ -173,6 +179,7 @@ def get_db() -> "DB":
 
 
 def _get_db_optional() -> "DB | None":
+    """Return the bound DB if available, otherwise None."""
     return _BOUND_DB
 
 
@@ -184,10 +191,12 @@ class DB:
     """Engine holder. Bind once per process with init_db() or bind_db()."""
 
     def __init__(self, engine: Engine):
+        """Create a DB wrapper around an existing SQLAlchemy engine."""
         self.engine = engine
 
     @classmethod
     def from_url(cls, url: str, *, echo: bool = False) -> "DB":
+        """Create a DB wrapper around a SQLAlchemy engine."""
         engine = create_engine(
             url,
             echo=echo,
@@ -198,6 +207,7 @@ class DB:
 
 
 def wait_for_db(engine: Engine, *, attempts: int = 60, sleep_s: float = 1.0) -> None:
+    """Block until the database responds or raise after exhausting retries."""
     last_err: Exception | None = None
     for _ in range(attempts):
         try:
@@ -220,6 +230,7 @@ def init_db(
     sleep_s: float = 1.0,
     sync: bool = True,
 ) -> DB:
+    """Initialize the engine, bind it globally, and optionally sync schema."""
     db = DB.from_url(url, echo=echo)
     bind_db(db)
 
@@ -241,11 +252,13 @@ _SNAKE_2 = re.compile(r"([a-z0-9])([A-Z])")
 
 
 def _snake(name: str) -> str:
+    """Convert CamelCase names to snake_case."""
     name = _SNAKE_1.sub(r"\1_\2", name)
     return _SNAKE_2.sub(r"\1_\2", name).lower()
 
 
 def _unwrap_to_base(tp: Any) -> Any:
+    """Strip wrappers/aliases to reach the base Python type."""
     tp = _unwrap_aliases(tp)
     origin = get_origin(tp)
     args = get_args(tp)
@@ -269,6 +282,7 @@ def _unwrap_to_base(tp: Any) -> Any:
 
 
 def _sa_type_for(py_type: Any):
+    """Map a Python type to a SQLAlchemy column type."""
     py_type = _unwrap_to_base(py_type)
 
     if py_type is int:
@@ -291,11 +305,14 @@ def _sa_type_for(py_type: Any):
 
 
 class Schema:
+    """Registry-backed schema helper for dataclass mapping."""
     def __init__(self):
+        """Initialize the SQLAlchemy registry and metadata."""
         self._reg = registry()
         self.metadata: MetaData = self._reg.metadata
 
     def sync_all(self, engine: Engine) -> None:
+        """Create all known tables and indexes if they do not exist."""
         with engine.begin() as conn:
             for table in self.metadata.sorted_tables:
                 conn.execute(CreateTable(table, if_not_exists=True))
@@ -306,6 +323,7 @@ class Schema:
                         conn.execute(CreateIndex(idx))
 
     def sync_table(self, engine: Engine, table: SATable) -> None:
+        """Create a single table and its indexes if they do not exist."""
         with engine.begin() as conn:
             conn.execute(CreateTable(table, if_not_exists=True))
             for idx in table.indexes:
@@ -315,12 +333,18 @@ class Schema:
                     conn.execute(CreateIndex(idx))
 
     @overload
-    def table(self, cls: type[T], *, name: str | None = None) -> type[T]: ...
+    def table(self, cls: type[T], *, name: str | None = None) -> type[T]:
+        """Type overload for direct decoration usage."""
+        ...
     @overload
-    def table(self, cls: None = None, *, name: str | None = None) -> Callable[[type[T]], type[T]]: ...
+    def table(self, cls: None = None, *, name: str | None = None) -> Callable[[type[T]], type[T]]:
+        """Type overload for decorator factory usage."""
+        ...
 
     def table(self, cls=None, *, name: str | None = None):
+        """Register a @dataclass model with the schema and SQLAlchemy mapping."""
         def deco(model: type[T]) -> type[T]:
+            """Decorate a dataclass to create and map its SQL table."""
             if not is_dataclass(model):
                 raise TypeError("@db.table must wrap a @dataclass class (apply @dataclass first)")
 
@@ -389,10 +413,15 @@ class Schema:
 schema = Schema()
 
 @overload
-def table(cls: type[T]) -> type[T]: ...
+def table(cls: type[T]) -> type[T]:
+    """Type overload for direct decoration usage."""
+    ...
 @overload
-def table(*, name: str | None = None) -> Callable[[type[T]], type[T]]: ...
+def table(*, name: str | None = None) -> Callable[[type[T]], type[T]]:
+    """Type overload for decorator factory usage."""
+    ...
 def table(cls=None, *, name: str | None = None):
+    """Public decorator helper that forwards to schema.table()."""
     return schema.table(cls, name=name)
 
 
@@ -404,7 +433,9 @@ _TLS = threading.local()
 
 
 class QueryPlan:
+    """Immutable plan describing a SQL operation and how to materialize results."""
     def __init__(self, *, kind: str, stmt: Any, mode: str, model: type | None = None, cast: Any = None):
+        """Store the statement, execution mode, and optional cast info."""
         self.kind = kind
         self.stmt = stmt
         self.mode = mode
@@ -413,7 +444,9 @@ class QueryPlan:
 
 
 class QueryBuilder:
+    """Builder for SQLAlchemy query plans with fluent helpers."""
     def __init__(self, model: type):
+        """Initialize a builder for the given mapped model."""
         self.model = model
         tbl = getattr(model, "__table__", None)
         if tbl is None:
@@ -429,6 +462,7 @@ class QueryBuilder:
 
 
     def __getattr__(self, name: str):
+        """Expose mapped columns as attributes for query building."""
         # notebook.book_title -> notebook.__table__.c.book_title
         try:
             return self._table.c[name]
@@ -437,43 +471,52 @@ class QueryBuilder:
 
                                  
     def where(self, *conds):
+        """Add WHERE clauses to the current statement."""
         self._conds.extend(conds)
         self._stmt = self._stmt.where(*conds)
         return self
     
     def join(self, other: "QueryBuilder | type", *, when, isouter: bool = False):
+        """Join another table or builder using the provided ON clause."""
         other_tbl = other._table if isinstance(other, QueryBuilder) else other.__table__
         self._stmt = self._stmt.join(other_tbl, onclause=when, isouter=isouter)
         return self
 
     def limit(self, n: int):
+        """Limit the number of rows returned."""
         self._stmt = self._stmt.limit(n)
         return self
 
     def order_by(self, *cols):
+        """Apply ORDER BY columns to the query."""
         self._stmt = self._stmt.order_by(*cols)
         return self
 
     def fetch_all(self) -> QueryPlan:
+        """Return a query plan that fetches all rows."""
         plan = QueryPlan(kind="select", stmt=self._stmt, mode="all", model=self.model)
         _TLS.last_plan = plan
         return plan
 
     def fetch_amount(self, n: int) -> QueryPlan:
+        """Return a plan limited to a fixed number of rows."""
         self.limit(n)
         return self.fetch_all()
 
     def fetch_first(self) -> QueryPlan:
+        """Return a plan that fetches the first row or None."""
         plan = QueryPlan(kind="select", stmt=self._stmt, mode="first", model=self.model)
         _TLS.last_plan = plan
         return plan
 
     def fetch_one(self) -> QueryPlan:
+        """Return a plan that expects exactly one row."""
         plan = QueryPlan(kind="select", stmt=self._stmt, mode="one", model=self.model)
         _TLS.last_plan = plan
         return plan
     
     def count(self) -> QueryPlan:
+        """Return a plan that counts rows matching the current filter."""
         stmt = select(func.count()).select_from(self._table)
         if self._conds:
             stmt = stmt.where(*self._conds)
@@ -547,6 +590,7 @@ class QueryBuilder:
         return self.where(or_(*exprs))
 
     def exists(self) -> QueryPlan:
+        """Return a plan that checks existence of matching rows."""
         inner = select(1).select_from(self._table)
         if self._conds:
             inner = inner.where(*self._conds)
@@ -556,6 +600,7 @@ class QueryBuilder:
         return plan
     
     def update(self, allow_all: bool = False, **values: Any) -> QueryPlan:
+        """Return an update plan, refusing unsafe global updates by default."""
         if not self._conds and not allow_all:
             raise RuntimeError(
                 "Refusing to UPDATE without a WHERE clause. "
@@ -673,19 +718,23 @@ class Table:
     """
 
     def __init__(self, model_or_models: Union[type, Sequence[type]]):
+        """Initialize a context manager for one or more models."""
         self._models = (
             list(model_or_models) if isinstance(model_or_models, (list, tuple)) else [model_or_models]
         )
 
     def __enter__(self):
+        """Return query builders for the supplied models."""
         builders = [QueryBuilder(m) for m in self._models]
         return builders[0] if len(builders) == 1 else builders
 
     def __exit__(self, exc_type, exc, tb) -> bool:
+        """Do not suppress exceptions from the context block."""
         return False
 
 
 def _row_to_kwargs(row: Any) -> dict[str, Any]:
+    """Normalize SQLAlchemy row mappings into plain dicts."""
     out: dict[str, Any] = {}
     for k, v in row.items():
         if isinstance(k, str):
@@ -697,6 +746,7 @@ def _row_to_kwargs(row: Any) -> dict[str, Any]:
 
 
 def _coerce_return(value: Any, return_type: Any) -> Any:
+    """Coerce return values into dataclass wrappers when appropriate."""
     if return_type in (None, inspect._empty, type(None)):
         return value
 
@@ -718,10 +768,12 @@ def _coerce_return(value: Any, return_type: Any) -> Any:
 
 
 def query(fn: Callable[P, R]) -> Callable[P, R]:
+    """Decorator that executes a query plan returned from a function."""
     return_type = fn.__annotations__.get("return", inspect._empty)
 
     @wraps(fn)
     def runner(*args: P.args, **kwargs: P.kwargs) -> R:
+        """Execute the recorded query plan and coerce results."""
         _TLS.last_plan = None
 
         out = fn(*args, **kwargs)

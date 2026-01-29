@@ -1,3 +1,4 @@
+"""CherryPy server entrypoint for the runtime routing layer."""
 from __future__ import annotations
 
 import os
@@ -9,6 +10,7 @@ from tsunami.db import init_db
 
 
 def main() -> None:
+    """Configure the database and start the CherryPy engine."""
     app_env = os.getenv("APP_ENV", "prod")
     db_url = os.getenv("DATABASE_URL", "postgresql+psycopg://app:app_password@db:5432/homelab_app")
 
