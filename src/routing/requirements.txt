@@ -1,0 +1,5 @@
+cherrypy
+pydantic
+pydantic-settings
+psycopg[binary]
+sqlalchemy

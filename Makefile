@@ -8,6 +8,12 @@ NAMI := $(PYTHON) src/cli/nami.py
 .DEFAULT_GOAL := help
 .PHONY: help dev dev-stop workspace build document clean nami
 
+ifneq ($(filter nami,$(MAKECMDGOALS)),)
+ARGS := $(filter-out nami,$(MAKECMDGOALS))
+%:
+	@:
+endif
+
 help: ## Show available targets
 	@awk 'BEGIN {FS=":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
@@ -27,7 +33,7 @@ dev-stop: ## Stop the nami dev container
 	@docker compose -f ops/docker/nami-dev.compose.yaml down
 
 nami: ## Run the nami CLI from releases/bin
-	@releases/bin/nami.py $$@
+	@releases/bin/nami.py $(ARGS)
 
 workspace: ## Start the framework workspace for feature development
 	@docker compose -f ops/docker/workspace.compose.yaml up -d --build
