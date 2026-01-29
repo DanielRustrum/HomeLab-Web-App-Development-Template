@@ -1,7 +1,7 @@
 from utils.notes import Notes, NoteInsert, Queries
-from tsunami import endpoints
+import tsunami as nami
 
-class Endpoint(endpoints.Endpoint):
+class Endpoint(nami.Endpoint):
     def init(self):
         pass
 
