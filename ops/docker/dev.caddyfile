@@ -1,9 +1,0 @@
-:5173 {
-  handle /api/* {
-    reverse_proxy app:8080
-  }
-
-  handle {
-    reverse_proxy frontend:5173
-  }
-}
