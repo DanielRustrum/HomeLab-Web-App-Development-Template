@@ -18,7 +18,7 @@ def _resolve_dev_port(template_dir: str | None) -> int:
     if not template_dir:
         return DEFAULT_DEV_PORT
 
-    template_path = Path(template_dir)
+    template_path = resolve_template_dir(Path(template_dir))
     if not template_path.is_absolute():
         template_path = REPO_ROOT / template_path
 
@@ -44,6 +44,14 @@ def _resolve_dev_port(template_dir: str | None) -> int:
             return DEFAULT_DEV_PORT
 
     return DEFAULT_DEV_PORT
+
+
+def resolve_template_dir(raw_template: Path) -> Path:
+    """Allow passing the parent template dir by resolving template/app."""
+    app_dir = raw_template / "app"
+    if app_dir.is_dir() and not (raw_template / "routes").exists():
+        return app_dir
+    return raw_template
 
 
 def register_dev_command(subparsers: argparse._SubParsersAction) -> None:
@@ -86,7 +94,7 @@ def run_dev_command(args: argparse.Namespace) -> int:
     override_path = None
     resolved_port = None
     if args.template:
-        template_dir = Path(args.template).expanduser()
+        template_dir = resolve_template_dir(Path(args.template).expanduser())
         if not template_dir.is_absolute():
             template_dir = (Path.cwd() / template_dir).resolve()
         if not template_dir.exists():

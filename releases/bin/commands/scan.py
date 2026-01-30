@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_TEMPLATE_DIR = REPO_ROOT / "template" / "app"
 
 
 @dataclass(frozen=True)
@@ -27,7 +28,7 @@ def register_scan_command(subparsers: argparse._SubParsersAction) -> None:
         "--template",
         dest="template",
         default=None,
-        help="Template folder path (default: <repo>/template).",
+        help="Template folder path (default: <repo>/template/app).",
     )
 
 
@@ -55,9 +56,18 @@ def build_scan_steps(template_dir: Path) -> list[ScanStep]:
     ]
 
 
+def resolve_template_dir(raw_template: Path) -> Path:
+    """Allow passing the parent template dir by resolving template/app."""
+    app_dir = raw_template / "app"
+    if app_dir.is_dir() and not (raw_template / "routes").exists():
+        return app_dir
+    return raw_template
+
+
 def run_scan_command(args: argparse.Namespace) -> int:
     """Run scan tasks based on parsed CLI args."""
-    template_dir = Path(args.template).resolve() if args.template else (REPO_ROOT / "template")
+    template_dir = Path(args.template).resolve() if args.template else DEFAULT_TEMPLATE_DIR
+    template_dir = resolve_template_dir(template_dir)
     if not template_dir.exists():
         print(f"nami: template directory not found: {template_dir}", file=sys.stderr)
         return 1

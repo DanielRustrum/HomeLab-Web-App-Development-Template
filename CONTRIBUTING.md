@@ -29,7 +29,7 @@ High-level layout:
 .
 ├─ ops/                     # Devops files and scripts (docker + helpers)
 ├─ src/                     # Framework source (CLI, orchestrator, core runtime)
-├─ template/                # Project template used by nami to scaffold apps
+├─ template/                # Project template parent (contains app/)
 ├─ releases/                # Built CLI artifacts
 ├─ docs/                    # Documentation and generated autodocs
 └─ Makefile                 # Common developer commands
@@ -41,7 +41,7 @@ Key folders:
   The `nami` CLI and its subcommands. `make build` packages this into `releases/bin`.
 
 - `src/orchestrator`  
-  The orchestrator that compiles the `template/` into a runtime workspace and
+  The orchestrator that compiles `template/app` into a runtime workspace and
   builds frontend assets via the embedded Vite setup in `src/orchestrator/vite`.
 
 - `src/python_module`  
@@ -50,7 +50,7 @@ Key folders:
 - `src/routing`  
   Request routing and dynamic endpoint plumbing used by the runtime.
 
-- `template/`  
+- `template/app`  
   The source template for new projects. `nami init` copies this directory as-is.
   Do not modify or clean it in automation.
 
@@ -58,10 +58,10 @@ Key folders:
 
 At a high level:
 
-1) The `nami` CLI can initialize a new project by copying `template/`.
+1) The `nami` CLI can initialize a new project by copying `template/app`.
 2) The orchestrator compiles the template into a runtime layout:
-   - Python endpoints from `template/routes/*.py` are staged under `endpoint/`.
-   - Route pages from `template/routes/*.tsx` are staged under `routing/`.
+   - Python endpoints from `template/app/routes/*.py` are staged under `endpoint/`.
+   - Route pages from `template/app/routes/*.tsx` are staged under `routing/`.
    - Utilities and optional config/init files are copied into the runtime root.
 3) Asset builds are handled by the Vite project under `src/orchestrator/vite`,
    which uses generated entries from the template routes.

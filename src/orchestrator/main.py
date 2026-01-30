@@ -13,6 +13,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VITE_PROJECT_DIR = REPO_ROOT / "src" / "orchestrator" / "vite"
+DEFAULT_TEMPLATE_DIR = REPO_ROOT / "template" / "app"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -20,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    template_dir = Path(args.template).resolve()
+    template_dir = resolve_template_dir(Path(args.template).resolve())
     temp_root = resolve_temp_root(args.temp_root)
     temp_compile = temp_root / "tsunami_compile"
     runtime_root = temp_root / "tsunami_runtime"
@@ -59,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
 def build_parser() -> argparse.ArgumentParser:
     """Create the CLI parser for orchestrator settings."""
     parser = argparse.ArgumentParser(description="Orchestrate template compilation and runtime.")
-    parser.add_argument("--template", default=str(REPO_ROOT / "template"), help="Template directory.")
+    parser.add_argument("--template", default=str(DEFAULT_TEMPLATE_DIR), help="Template directory.")
     parser.add_argument(
         "--temp-root",
         default="/temp",
@@ -85,6 +86,14 @@ def resolve_temp_root(raw: str) -> Path:
         return candidate
     fallback = Path("/tmp")
     return fallback if fallback.exists() else candidate
+
+
+def resolve_template_dir(raw_template: Path) -> Path:
+    """Allow passing the parent template dir by resolving template/app."""
+    app_dir = raw_template / "app"
+    if app_dir.is_dir() and not (raw_template / "routes").exists():
+        return app_dir
+    return raw_template
 
 
 def prepare_dir(path: Path, *, force: bool) -> None:

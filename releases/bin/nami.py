@@ -15,7 +15,7 @@ from commands.workspace import register_workspace_command, run_workspace_command
 
 def build_parser() -> argparse.ArgumentParser:
     """Create the root argparse parser and register subcommands."""
-    parser = argparse.ArgumentParser(prog="nami", description="Generate a project from /template.")
+    parser = argparse.ArgumentParser(prog="nami", description="Generate a project from /template/app.")
     parser.set_defaults(_root_parser=parser)
     subparsers = parser.add_subparsers(dest="command", required=True)
 

@@ -1781,7 +1781,7 @@ def main(argv: list[str] | None = None) -> int:
         "--out",
         dest="out",
         default=None,
-        help="Write to file instead of stdout (default: template/library/api.types.ts if present).",
+        help="Write to file instead of stdout (default: template/app/library/api.types.ts if present).",
     )
 
     argument_parser.add_argument(
@@ -1821,7 +1821,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parsed_args = argument_parser.parse_args(argv)
     if parsed_args.out is None:
-        default_out_path = Path("template/library/api.types.ts")
+        default_out_path = Path("template/app/library/api.types.ts")
         if default_out_path.parent.is_dir():
             parsed_args.out = str(default_out_path)
 

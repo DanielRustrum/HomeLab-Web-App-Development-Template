@@ -6,9 +6,9 @@ import shutil
 from pathlib import Path
 
 
-LOCAL_TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "template"
+LOCAL_TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "template" / "app"
 REPO_ROOT = Path(__file__).resolve().parents[3]
-FALLBACK_TEMPLATE_DIR = REPO_ROOT / "template"
+FALLBACK_TEMPLATE_DIR = REPO_ROOT / "template" / "app"
 
 
 def register_init_command(subparsers: argparse._SubParsersAction) -> None:
