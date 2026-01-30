@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_DEV_PORT = 23541
+DEFAULT_DEV_PORT = 8080
 
 
 def _resolve_dev_port(template_dir: str | None) -> int:
@@ -80,14 +82,47 @@ def run_dev_command(args: argparse.Namespace) -> int:
         "compose",
         "-f",
         str(compose_file),
-        "up",
-        "-d",
     ]
+    override_path = None
+    resolved_port = None
+    if args.template:
+        template_dir = Path(args.template).expanduser()
+        if not template_dir.is_absolute():
+            template_dir = (Path.cwd() / template_dir).resolve()
+        if not template_dir.exists():
+            print(f"nami: template directory not found: {template_dir}", file=sys.stderr)
+            return 1
+        port = _resolve_dev_port(str(template_dir))
+        resolved_port = port
+        override_contents = "\n".join(
+            [
+                "services:",
+                "  orchestrator:",
+                "    environment:",
+                f"      APP_PORT: \"{port}\"",
+                "    volumes:",
+                f"      - {template_dir}:/app/template",
+                "    ports:",
+                f"      - \"{port}:{port}\"",
+                "    command: [\"python\", \"-u\", \"-m\", \"orchestrator.main\", \"--force\", \"--watch\", \"--template\", \"/app/template\"]",
+                "",
+            ]
+        )
+        with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as handle:
+            handle.write(override_contents)
+            override_path = handle.name
+        cmd.extend(["-f", override_path])
+    cmd.extend(["up", "-d"])
     if not args.no_build:
         cmd.append("--build")
 
     result = subprocess.run(cmd, check=False, cwd=str(compose_file.parent))
+    if override_path:
+        try:
+            os.unlink(override_path)
+        except OSError:
+            pass
     if result.returncode == 0:
-        port = _resolve_dev_port(args.template)
+        port = resolved_port if resolved_port is not None else _resolve_dev_port(args.template)
         print(f"tsunami dev server: http://localhost:{port}", flush=True)
     return result.returncode

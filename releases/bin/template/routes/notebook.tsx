@@ -1,9 +1,24 @@
-import { api } from 'tsunami'
+import { useEffect, useState } from "react";
+import { api } from "tsunami";
 
 export default function() {
-    const note_234 = api("note.234.get")
+  const [body, setBody] = useState<string>("")
+
+  useEffect(async () => {
+    let mounted = true
     
-    return (
-        <p>{note_234.body}</p>
-    )
+    try {
+        const note = await api("note.234.get")
+        
+        if (mounted) setBody(note?.[0]?.body ?? "");
+    } catch(err) {
+        console.error("Failed to load note", err)
+    }
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  return <p>Notebooks: {body}</p>;
 }

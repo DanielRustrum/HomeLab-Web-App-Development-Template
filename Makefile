@@ -4,9 +4,12 @@ ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 PYTHON ?= python3
 
 NAMI := $(PYTHON) src/cli/nami.py
+USER_BIN ?= $(HOME)/.local/bin
+NAMI_USER_TARGET := $(USER_BIN)/nami
+NAMI_REPO_BIN := $(ROOT)/releases/bin
 
 .DEFAULT_GOAL := help
-.PHONY: help dev dev-stop workspace build document clean nami
+.PHONY: help dev dev-stop workspace build document clean nami nami-install nami-remove nami-update
 
 ifneq ($(filter nami,$(MAKECMDGOALS)),)
 ARGS := $(filter-out nami,$(MAKECMDGOALS))
@@ -34,6 +37,31 @@ dev-stop: ## Stop the nami dev container
 
 nami: ## Run the nami CLI from releases/bin
 	@releases/bin/nami.py $(ARGS)
+
+nami-install: ## Install nami into the user's bin directory
+	@mkdir -p $(USER_BIN)
+	@if [ -f $(NAMI_REPO_BIN)/nami.py ]; then \
+		printf '%s\n' '#!/bin/sh' \
+			'export PYTHONPATH="$(NAMI_REPO_BIN)$${PYTHONPATH:+:}$${PYTHONPATH}"' \
+			'exec /usr/bin/env python3 "$(NAMI_REPO_BIN)/nami.py" "$$@"' \
+			> $(NAMI_USER_TARGET); \
+		chmod 755 $(NAMI_USER_TARGET); \
+	else \
+		echo "nami-install: missing $(NAMI_REPO_BIN)/nami.py; run make build"; \
+		exit 1; \
+	fi
+	@echo "nami: installed -> $(NAMI_USER_TARGET)"
+
+nami-update: ## Update nami in the user's bin directory
+	@$(MAKE) nami-install
+
+nami-remove: ## Remove nami from the user's bin directory
+	@if [ -f $(NAMI_USER_TARGET) ]; then \
+		rm -f $(NAMI_USER_TARGET); \
+		echo "nami: removed -> $(NAMI_USER_TARGET)"; \
+	else \
+		echo "nami: not installed -> $(NAMI_USER_TARGET)"; \
+	fi
 
 workspace: ## Start the framework workspace for feature development
 	@docker compose -f ops/docker/workspace.compose.yaml up -d --build
