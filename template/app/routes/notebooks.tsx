@@ -1,5 +1,7 @@
+import * as styles from './notebooks.scss';
+
 export default function() {
     return (
-        <p>Hello!</p>
+        <p class={styles.test}>Hello!</p>
     )
 }

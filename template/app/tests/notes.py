@@ -6,5 +6,5 @@ class Suite:
         pass
 
     class Tests:
-        def create_note(self):
-            return True
+        def create_note(self, expects):
+            return expects.condition(True)
