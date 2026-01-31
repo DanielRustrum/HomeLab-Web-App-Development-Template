@@ -1,15 +1,9 @@
 import tsunami as nami
-from utils import note_empty as note
+from utils import notes as note
 
 class Endpoint(nami.Endpoint):
-    def init(self):
-        pass
-
     def get(self) -> note.Notes:
-        return [ note.Note("Hello!", "Lets Go!", "sdfsdfsdf", "sfdsdfsdf") ]
+        return note.Queries.get_notes()
 
-    def post(self, note: note.Note) -> None:
-        print("endpoint: ", note)
-
-    def cleanup(self):
-        pass
+    def post(self, payload: note.NoteInsert) -> None:
+        note.Queries.add_note(payload)

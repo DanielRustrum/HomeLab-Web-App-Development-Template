@@ -13,14 +13,47 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DEV_PORT = 8080
 
 
+def _read_port_from_config(template_dir: Path) -> int | None:
+    """Read app.port from config.yaml if present."""
+    for rel_path in ("config.yaml", "config.yml", "app/config.yaml", "app/config.yml"):
+        config_path = template_dir / rel_path
+        if not config_path.is_file():
+            continue
+        try:
+            in_app = False
+            for raw_line in config_path.read_text().splitlines():
+                line = raw_line.split("#", 1)[0].rstrip()
+                if not line.strip():
+                    continue
+                indent = len(line) - len(line.lstrip(" "))
+                stripped = line.strip()
+                if indent == 0 and stripped.startswith("app:"):
+                    in_app = True
+                    continue
+                if indent == 0:
+                    in_app = False
+                if in_app and stripped.startswith("port:"):
+                    value = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+                    return int(value)
+        except OSError:
+            continue
+        except ValueError:
+            continue
+    return None
+
+
 def _resolve_dev_port(template_dir: str | None) -> int:
     """Resolve the port for the dev server URL."""
     if not template_dir:
-        return DEFAULT_DEV_PORT
+        template_path = resolve_template_dir(REPO_ROOT / "template")
+    else:
+        template_path = resolve_template_dir(Path(template_dir))
+        if not template_path.is_absolute():
+            template_path = REPO_ROOT / template_path
 
-    template_path = resolve_template_dir(Path(template_dir))
-    if not template_path.is_absolute():
-        template_path = REPO_ROOT / template_path
+    config_port = _read_port_from_config(template_path)
+    if config_port is not None:
+        return config_port
 
     for env_name in ("secret.env", "secrets.env"):
         env_path = template_path / env_name

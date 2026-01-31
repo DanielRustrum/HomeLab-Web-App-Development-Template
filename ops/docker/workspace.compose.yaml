@@ -6,8 +6,11 @@ services:
     container_name: framework_workspace
     working_dir: /workspace
     volumes:
-      - ../..:/workspace
+      - "${NAMI_WORKSPACE_DIR:-../..}:/workspace"
       - workspace_home:/home
+      - workspace_venv:/workspace/.venv
+      - workspace_node_modules:/workspace/node_modules
+      - workspace_frontend_node_modules:/workspace/frontend/node_modules
     ports:
       - "${TSUNAMI_PORT:-23541}:23541"
     environment:
@@ -16,3 +19,6 @@ services:
 
 volumes:
   workspace_home:
+  workspace_venv:
+  workspace_node_modules:
+  workspace_frontend_node_modules:

@@ -10,7 +10,8 @@ export default function() {
     try {
         const note = await api("note.234.get")
         
-        if (mounted) setBody(note?.[0]?.body ?? "");
+        console.log(note)
+        if (mounted) setBody(note?.notes?.[0].body ?? "");
     } catch(err) {
         console.error("Failed to load note", err)
     }
@@ -20,5 +21,21 @@ export default function() {
     }
   }, [])
 
-  return <p>Notebooks: {body}</p>;
+  return (
+    <div>
+      <p>Notebooks: {body}</p>
+      <button
+        onClick={async () => {
+          await api("note.234.post", {
+            title: "New Note",
+            body: "body???",
+            test: "",
+            created_at: new Date().toISOString(),
+          });
+        }}
+      >
+        Add Note
+      </button>
+    </div>
+  );
 }

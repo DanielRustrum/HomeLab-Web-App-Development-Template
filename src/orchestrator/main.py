@@ -111,6 +111,8 @@ def stage_template(template_dir: Path, temp_compile: Path) -> None:
         raise FileNotFoundError(f"Template directory not found: {template_dir}")
 
     shutil.copytree(template_dir, temp_compile / "template", dirs_exist_ok=True)
+    ensure_package_inits(temp_compile / "template" / "routes")
+    ensure_package_inits(temp_compile / "template" / "utils")
 
 
 def build_assets(temp_compile: Path, runtime_root: Path) -> None:
@@ -232,6 +234,8 @@ def assemble_runtime(temp_compile: Path, runtime_root: Path) -> None:
         shutil.copy2(route_path, dest)
 
     copy_tree(template_dir / "utils", runtime_root / "utils")
+    ensure_package_inits(runtime_root / "endpoint")
+    ensure_package_inits(runtime_root / "utils")
 
     init_src = template_dir / "init.py"
     if init_src.exists():
@@ -260,6 +264,21 @@ def copy_tree(src: Path, dst: Path) -> None:
     if not src.exists():
         return
     shutil.copytree(src, dst, dirs_exist_ok=True)
+
+
+def ensure_package_inits(root: Path) -> None:
+    """Create missing __init__.py files for Python package directories."""
+    if not root.exists():
+        return
+    package_dirs: set[Path] = set()
+    for path in root.rglob("*.py"):
+        if "__pycache__" in path.parts:
+            continue
+        package_dirs.add(path.parent)
+    for dir_path in package_dirs:
+        init_path = dir_path / "__init__.py"
+        if not init_path.exists():
+            init_path.write_text("", encoding="utf-8")
 
 
 def watch_orchestrator(
@@ -450,6 +469,7 @@ def sync_runtime(*, template_dir: Path, temp_compile: Path, runtime_root: Path) 
     """Sync template files into runtime and compile staging."""
     template_routes = template_dir / "routes"
     compile_routes = temp_compile / "template" / "routes"
+    compile_utils = temp_compile / "template" / "utils"
 
     sync_dir(template_routes, compile_routes, suffixes={".py", ".tsx"})
     sync_dir(template_routes, runtime_root / "endpoint", suffixes={".py"})
@@ -465,6 +485,10 @@ def sync_runtime(*, template_dir: Path, temp_compile: Path, runtime_root: Path) 
 
     sync_file(template_dir / "init.py", runtime_root / "init.py")
     sync_file(template_dir / "config.yaml", runtime_root / "config.yaml")
+    ensure_package_inits(compile_routes)
+    ensure_package_inits(compile_utils)
+    ensure_package_inits(runtime_root / "endpoint")
+    ensure_package_inits(runtime_root / "utils")
 
 
 def sync_file(src: Path, dst: Path) -> None:

@@ -209,6 +209,9 @@ class ApiRouter:
         if page_match is not None:
             return self._serve_page(page_match["file"], status=200)
 
+        if self._not_found_page:
+            return self._serve_page(self._not_found_page, status=404)
+
         return _serialize({"ok": True})
 
     @cherrypy.expose
@@ -536,7 +539,7 @@ def _tokens_from_pages_path(file_path: Path, *, pages_dir: Path) -> list[tuple[s
     dir_parts = [] if str(rel.parent) == "." else list(rel.parent.parts)
     stem_parts = [s.strip() for s in rel.stem.split(".") if s.strip()]
 
-    if rel.name == "index.tsx" and not dir_parts:
+    if rel.name == "[index].tsx" and not dir_parts:
         return []
 
     tokens: list[tuple[str, str]] = []

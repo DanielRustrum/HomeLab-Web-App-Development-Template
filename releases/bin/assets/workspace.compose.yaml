@@ -1,0 +1,27 @@
+services:
+  workspace:
+    build:
+      context: ./assets
+      dockerfile: Dockerfile
+    container_name: nami_workspace
+    working_dir: /workspace
+    volumes:
+      - "${NAMI_WORKSPACE_DIR:-.}:/workspace"
+      - "${NAMI_CLI_DIR:-.}:/nami:ro"
+      - workspace_home:/home
+      - workspace_venv:/workspace/.venv
+      - workspace_node_modules:/workspace/node_modules
+      - workspace_frontend_node_modules:/workspace/frontend/node_modules
+      - workspace_template_node_modules:/workspace/template/app/node_modules
+    ports:
+      - "${TSUNAMI_PORT:-23541}:23541"
+    environment:
+      TSUNAMI_PORT: "23541"
+    command: ["sleep", "infinity"]
+
+volumes:
+  workspace_home:
+  workspace_venv:
+  workspace_node_modules:
+  workspace_frontend_node_modules:
+  workspace_template_node_modules:

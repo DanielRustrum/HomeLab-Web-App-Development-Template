@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BIN_DIR="$ROOT/releases/bin"
 NAMI_SRC="$ROOT/src/cli/nami.py"
 COMMANDS_SRC="$ROOT/src/cli/commands"
+ASSETS_SRC="$ROOT/src/cli/assets"
 TEMPLATE_SRC="$ROOT/template"
 TS_MODULE_SRC="$ROOT/src/ts_module"
 PY_MODULE_SRC="$ROOT/src/python_module"
@@ -53,6 +54,11 @@ chmod +x "$BIN_DIR/nami.py"
 if [[ -d "$COMMANDS_SRC" ]]; then
   mkdir -p "$BIN_DIR/commands"
   cp -R "$COMMANDS_SRC/." "$BIN_DIR/commands/"
+fi
+
+if [[ -d "$ASSETS_SRC" ]]; then
+  mkdir -p "$BIN_DIR/assets"
+  cp -R "$ASSETS_SRC/." "$BIN_DIR/assets/"
 fi
 
 if [[ -d "$TEMPLATE_SRC" ]]; then

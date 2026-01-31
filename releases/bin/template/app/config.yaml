@@ -1,6 +1,11 @@
 app:
-  name: Homelab App
+  name: New Project
   port: 20020
+  auth:
+    redirect_to_route: false
+    route_to_redirect_to: index
+  database:
+    port: 5678
 type_maps:
   - UUID: string
   - Result<T>: Array<{T}>

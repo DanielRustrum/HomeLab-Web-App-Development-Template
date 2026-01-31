@@ -1,0 +1,20 @@
+{
+  "name": "tsunami",
+  "version": "0.1.0",
+  "description": "Tsunami TypeScript core utilities.",
+  "type": "module",
+  "main": "dist/tsunami/index.js",
+  "types": "dist/tsunami/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/tsunami/index.d.ts",
+      "default": "./dist/tsunami/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

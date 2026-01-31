@@ -2,7 +2,7 @@ import { struct } from "tsunami";
 
 
 interface NoteNoteIdPostBodyObject {
-  note: NoteInsert;
+  note: unknown;
 }
 export const NoteNoteIdPostBody = struct<NoteNoteIdPostBodyObject>()("note");
 export type NoteNoteIdPostBody = NoteNoteIdPostBodyObject;
@@ -15,7 +15,7 @@ type StaticEndpointSpec = {
 type DynamicEndpointCases = [
   { pattern: `notebook.${string}.get`; response: Notes; body: never; query: never; path: { book_id: string } },
   { pattern: `note.${string}.post`; response: NoteNoteIdPostBody; body: NoteNoteIdPostBody; query: never; path: { note_id: string } },
-  { pattern: `note.${string}.get`; response: Notes; body: never; query: never; path: { note_id: string } },
+  { pattern: `note.${string}.get`; response: unknown; body: never; query: never; path: { note_id: string } },
 ]
 
 
